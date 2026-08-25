@@ -3,6 +3,7 @@ import cors from "cors";
 import helmet from "helmet";
 import cookieParser from "cookie-parser";
 
+import routes from "./routes/index.js";
 import { notFoundHandler } from "./middlewares/notFound.middleware.js";
 import { globalErrorHandler } from "./middlewares/error.middleware.js";
 import { prisma } from "./lib/prisma.js";
@@ -33,6 +34,7 @@ app.get(
     });
   }),
 );
+app.use("/api/v1", routes);
 
 app.use(notFoundHandler);
 app.use(globalErrorHandler);
