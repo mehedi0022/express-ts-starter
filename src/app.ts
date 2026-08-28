@@ -2,11 +2,11 @@ import express from "express";
 import cors from "cors";
 import helmet from "helmet";
 import cookieParser from "cookie-parser";
+import "temporal-polyfill/full/global";
 
 import routes from "./routes/index.js";
 import { notFoundHandler } from "./middlewares/notFound.middleware.js";
 import { globalErrorHandler } from "./middlewares/error.middleware.js";
-import { asyncHandler } from "./utils/asyncHandler.js";
 
 const app = express();
 

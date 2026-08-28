@@ -1,10 +1,24 @@
-// use prisma-next
 model User {
-  id        String                     @id @default(uuid())
-  email     String                     @unique
-  username  String?
-  full_name String?
+  id        Int      @id @default(autoincrement())
+  email     String   @unique
+  userName  String?
+  fullName  String?
   password  String
-  createdAt TimestamptzString          @default(now())
-  updatedAt temporal.updatedAtString()
+  createdAt DateTime @default(now())
+  updatedAt temporal.updatedAt()
+
+  sessions Session[]
+}
+
+model Session {
+  id               Int       @id @default(autoincrement())
+  userId           Int
+  refreshTokenHash String    @unique
+  expiresAt        DateTime
+  revokedAt        DateTime?
+  createdAt        DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId])
 }

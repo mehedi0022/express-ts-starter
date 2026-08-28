@@ -13,8 +13,8 @@ export const findAllUsers = async () => {
 
 export const createUser = async (data: CreateUserInput) => {
   return db.orm.public.User.create({
-    username: data.username,
-    full_name: data.full_name,
+    userName: data.userName,
+    fullName: data.fullName,
     email: data.email,
     password: data.password,
   });
