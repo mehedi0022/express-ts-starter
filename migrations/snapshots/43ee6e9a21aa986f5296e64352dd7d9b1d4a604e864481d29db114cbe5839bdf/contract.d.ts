@@ -33,7 +33,7 @@ import type {
 } from '@prisma/orm-postgres/contract/types';
 
 export type StorageHash =
-  StorageHashBase<'b1fc22711a47d812ac24f5908f312a2d78c76506c3e4035bbd7d53a59e2ed806'>;
+  StorageHashBase<'43ee6e9a21aa986f5296e64352dd7d9b1d4a604e864481d29db114cbe5839bdf'>;
 export type ExecutionHash =
   ExecutionHashBase<'310019084b15be2633fbf0348189a54dcf1b6e81878d091114c19e518b840b95'>;
 export type ProfileHash =
@@ -246,7 +246,6 @@ export type FieldOutputTypes = {
       readonly email: CodecTypes['pg/text@1']['output'];
       readonly username: CodecTypes['pg/text@1']['output'] | null;
       readonly full_name: CodecTypes['pg/text@1']['output'] | null;
-      readonly password: CodecTypes['pg/text@1']['output'];
       readonly createdAt: CodecTypes['pg/timestamptz-string@1']['output'];
       readonly updatedAt: CodecTypes['pg/timestamptz-string@1']['output'];
     };
@@ -259,7 +258,6 @@ export type FieldInputTypes = {
       readonly email: CodecTypes['pg/text@1']['input'];
       readonly username: CodecTypes['pg/text@1']['input'] | null;
       readonly full_name: CodecTypes['pg/text@1']['input'] | null;
-      readonly password: CodecTypes['pg/text@1']['input'];
       readonly createdAt: CodecTypes['pg/timestamptz-string@1']['input'];
       readonly updatedAt: CodecTypes['pg/timestamptz-string@1']['input'];
     };
@@ -272,7 +270,6 @@ export type StorageColumnTypes = {
       readonly email: CodecTypes['pg/text@1']['output'];
       readonly full_name: CodecTypes['pg/text@1']['output'] | null;
       readonly id: CodecTypes['pg/text@1']['output'];
-      readonly password: CodecTypes['pg/text@1']['output'];
       readonly updatedAt: CodecTypes['pg/timestamptz-string@1']['output'];
       readonly username: CodecTypes['pg/text@1']['output'] | null;
     };
@@ -285,7 +282,6 @@ export type StorageColumnInputTypes = {
       readonly email: CodecTypes['pg/text@1']['input'];
       readonly full_name: CodecTypes['pg/text@1']['input'] | null;
       readonly id: CodecTypes['pg/text@1']['input'];
-      readonly password: CodecTypes['pg/text@1']['input'];
       readonly updatedAt: CodecTypes['pg/timestamptz-string@1']['input'];
       readonly username: CodecTypes['pg/text@1']['input'] | null;
     };
@@ -330,11 +326,6 @@ type ContractBase = Omit<
                   readonly nativeType: 'text';
                   readonly codecId: 'pg/text@1';
                   readonly nullable: true;
-                };
-                readonly password: {
-                  readonly nativeType: 'text';
-                  readonly codecId: 'pg/text@1';
-                  readonly nullable: false;
                 };
                 readonly createdAt: {
                   readonly nativeType: 'timestamptz';
@@ -388,10 +379,6 @@ type ContractBase = Omit<
                 readonly nullable: true;
                 readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
               };
-              readonly password: {
-                readonly nullable: false;
-                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
-              };
               readonly createdAt: {
                 readonly nullable: false;
                 readonly type: {
@@ -416,7 +403,6 @@ type ContractBase = Omit<
                 readonly email: { readonly column: 'email' };
                 readonly username: { readonly column: 'username' };
                 readonly full_name: { readonly column: 'full_name' };
-                readonly password: { readonly column: 'password' };
                 readonly createdAt: { readonly column: 'createdAt' };
                 readonly updatedAt: { readonly column: 'updatedAt' };
               };

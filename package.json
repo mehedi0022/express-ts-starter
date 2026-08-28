@@ -7,7 +7,12 @@
     "dev": "tsx watch src/server.ts",
     "build": "tsc",
     "start": "node dist/server.js",
-    "contract:emit": "prisma contract emit"
+    "db:emit": "npx prisma contract emit",
+    "db:format": "npx prisma contract format",
+    "db:verify": "npx prisma db verify",
+    "db:status": "npx prisma migration status",
+    "db:plan": "npx prisma migration plan",
+    "db:migrate": "npx prisma db migrate"
   },
   "keywords": [],
   "author": "",
@@ -15,6 +20,7 @@
   "type": "module",
   "dependencies": {
     "@prisma/orm-postgres": "^8.0.0-rc.8",
+    "argon2": "^0.45.1",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
@@ -34,6 +40,7 @@
     "typescript": "^7.0.2"
   },
   "allowScripts": {
-    "esbuild@0.28.2": true
+    "esbuild@0.28.2": true,
+    "argon2@0.45.1": true
   }
 }
