@@ -19,6 +19,13 @@
         "models": {
           "Session": {
             "fields": {
+              "absoluteExpiresAt": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/timestamptz-temporal@1",
+                  "kind": "scalar"
+                }
+              },
               "createdAt": {
                 "nullable": false,
                 "type": {
@@ -44,6 +51,13 @@
                 "nullable": false,
                 "type": {
                   "codecId": "pg/text@1",
+                  "kind": "scalar"
+                }
+              },
+              "rememberMe": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/bool@1",
                   "kind": "scalar"
                 }
               },
@@ -81,6 +95,9 @@
             },
             "storage": {
               "fields": {
+                "absoluteExpiresAt": {
+                  "column": "absoluteExpiresAt"
+                },
                 "createdAt": {
                   "column": "createdAt"
                 },
@@ -92,6 +109,9 @@
                 },
                 "refreshTokenHash": {
                   "column": "refreshTokenHash"
+                },
+                "rememberMe": {
+                  "column": "rememberMe"
                 },
                 "revokedAt": {
                   "column": "revokedAt"
@@ -212,6 +232,11 @@
           "table": {
             "session": {
               "columns": {
+                "absoluteExpiresAt": {
+                  "codecId": "pg/timestamptz-temporal@1",
+                  "nativeType": "timestamptz",
+                  "nullable": false
+                },
                 "createdAt": {
                   "codecId": "pg/timestamptz-temporal@1",
                   "default": {
@@ -238,6 +263,15 @@
                 "refreshTokenHash": {
                   "codecId": "pg/text@1",
                   "nativeType": "text",
+                  "nullable": false
+                },
+                "rememberMe": {
+                  "codecId": "pg/bool@1",
+                  "default": {
+                    "kind": "literal",
+                    "value": false
+                  },
+                  "nativeType": "bool",
                   "nullable": false
                 },
                 "revokedAt": {
@@ -359,7 +393,7 @@
         "kind": "postgres-schema"
       }
     },
-    "storageHash": "8f2c55006fbbedbf89ba03d6429156772f8824033e36e7bc93fe6eeaaefe9c19"
+    "storageHash": "f8d8486d4ee3aa8a1551cdf593fc208457bfbf3b99a85cd36e8e4936ab7447e4"
   },
   "execution": {
     "executionHash": "eab594c7ae5d605f3ec23efb87abfb84738b65ef9804d7f3134ad6d40ab02ce0",

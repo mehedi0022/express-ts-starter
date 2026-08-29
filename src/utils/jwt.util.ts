@@ -3,7 +3,7 @@ import jwt from "jsonwebtoken";
 import { env } from "../config/env.js";
 
 export type TokenPayload = {
-  userId: string;
+  userId: number;
 };
 
 export const signAccessToken = (payload: TokenPayload) => {
