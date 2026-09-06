@@ -62,13 +62,22 @@ beforeAll(async () => {
 
 beforeEach(() => {
   database.state.lookupUser = { ...rawUser, role: "USER" };
-  database.userSelect.mockImplementation((...fields: string[]) => ({
-    first: vi.fn(async () => database.state.lookupUser),
-    all: vi.fn(async () => [project(rawUser, fields)]),
-    create: vi.fn(async (data: Record<string, unknown>) =>
-      project({ ...rawUser, ...data }, fields),
-    ),
-  }));
+  database.userSelect.mockImplementation((...fields: string[]) => {
+    const collection = {
+      first: vi.fn(async () => database.state.lookupUser),
+      all: vi.fn(async () => [project(rawUser, fields)]),
+      create: vi.fn(async (data: Record<string, unknown>) =>
+        project({ ...rawUser, ...data }, fields),
+      ),
+      aggregate: vi.fn(async () => ({ total: 1 })),
+      where: vi.fn(() => collection),
+      orderBy: vi.fn(() => collection),
+      offset: vi.fn(() => collection),
+      limit: vi.fn(() => collection),
+    };
+
+    return collection;
+  });
   database.userWhere.mockImplementation(({ id }: { id: number }) => ({
     select: vi.fn((...fields: string[]) => ({
       update: vi.fn(async (data: Record<string, unknown>) => {
@@ -122,6 +131,7 @@ describe("user API security boundary", () => {
 
     expect(response.status).toBe(200);
     expectNoSensitiveUserFields(response.body);
+    expect(response.body.meta).toEqual({ page: 1, limit: 20, total: 1, totalPages: 1 });
     expect(Object.keys(response.body.data[0]).sort()).toEqual([
       "createdAt",
       "email",
@@ -131,6 +141,51 @@ describe("user API security boundary", () => {
       "updatedAt",
       "userName",
     ]);
+  });
+
+  it("bounds user-list pagination and returns accurate metadata", async () => {
+    database.state.lookupUser = { ...rawUser, role: "ADMIN" };
+    const token = jwt.signAccessToken({ userId: 2 });
+
+    const response = await request(app)
+      .get("/api/v1/users?page=2&limit=100&sortBy=email&sortOrder=asc")
+      .set("Authorization", `Bearer ${token}`);
+
+    expect(response.status).toBe(200);
+    expect(response.body.meta).toEqual({ page: 2, limit: 100, total: 1, totalPages: 1 });
+    expectNoSensitiveUserFields(response.body.data);
+  });
+
+  it("rejects unbounded, unsupported, and arbitrary user-list query parameters", async () => {
+    database.state.lookupUser = { ...rawUser, role: "ADMIN" };
+    const token = jwt.signAccessToken({ userId: 2 });
+
+    const [tooLarge, invalidSort, arbitraryFilter] = await Promise.all([
+      request(app).get("/api/v1/users?limit=101").set("Authorization", `Bearer ${token}`),
+      request(app).get("/api/v1/users?sortBy=password").set("Authorization", `Bearer ${token}`),
+      request(app).get("/api/v1/users?password=anything").set("Authorization", `Bearer ${token}`),
+    ]);
+
+    for (const response of [tooLarge, invalidSort, arbitraryFilter]) {
+      expect(response.status).toBe(400);
+      expect(response.body).toMatchObject({ success: false, code: "VALIDATION_ERROR" });
+    }
+  });
+
+  it("accepts only the allowlisted role filter", async () => {
+    database.state.lookupUser = { ...rawUser, role: "ADMIN" };
+    const token = jwt.signAccessToken({ userId: 2 });
+
+    const response = await request(app)
+      .get("/api/v1/users?role=USER")
+      .set("Authorization", `Bearer ${token}`);
+
+    expect(response.status).toBe(200);
+    expect(database.userSelect.mock.results.some((result) =>
+      result.value.where.mock.calls.some(
+        (call: unknown[]) => (call[0] as { role?: string } | undefined)?.role === "USER",
+      ),
+    )).toBe(true);
   });
 
   it("allows self-read but rejects access to another user's detail", async () => {

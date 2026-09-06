@@ -21,6 +21,47 @@ npm run sessions:cleanup
 The cleanup command is safe to run repeatedly. Configure its database through
 the same validated runtime environment as the application.
 
+## Optional email infrastructure
+
+Email is disabled by default (`SMTP_ENABLED=false`) and automated tests never
+send real email. When enabled, configure `SMTP_HOST`, `SMTP_PORT`,
+`SMTP_SECURE`, `SMTP_USER`, `SMTP_PASSWORD`, and `SMTP_FROM_EMAIL`; optional
+`SMTP_FROM_NAME` controls the sender display name.
+
+Business modules should use `emailService.sendEmail(...)` from the email module,
+not import Nodemailer. Generic verification and password-reset templates live
+under `src/modules/email/templates/` and can be customized independently from
+the SMTP transport. `emailService.verifyConnection()` is available for an
+explicit deployment health check and does not run at application startup.
+`EMAIL_BRAND_NAME`, `EMAIL_PRIMARY_COLOR`, `EMAIL_LOGO_URL`,
+`EMAIL_SUPPORT_EMAIL`, and `EMAIL_FOOTER_TEXT` customize the shared responsive
+email shell. If no logo URL is supplied, the template renders a branded
+monogram automatically.
+
+## Optional upload infrastructure
+
+Uploads are disabled by default. Set `UPLOAD_STORAGE=local` to use the server's
+`UPLOAD_LOCAL_DIR` (`uploads` by default), or set `UPLOAD_STORAGE=cloudinary`
+and then enable Cloudinary with its credentials. The module uses Multer memory
+storage only for the lifetime of parsing; local files are written only after
+validation succeeds. Local files are served read-only under `/uploads` when
+uploads are enabled. Default policy allows JPEG,
+PNG, and WebP with a 5 MiB per-file limit and five files per request. Configure
+the limits and MIME allowlist with `UPLOAD_*` variables.
+
+Use `imageUpload.single("file")` or `imageUpload.array("files")` for multipart
+parsing, then call `uploadService.upload(file, "avatars")` after resource-level
+authorization. The service verifies MIME type, filename extension, size, and
+JPEG/PNG/WebP magic bytes before delegating to storage. Folders and public IDs
+are server-controlled; clients do not supply Cloudinary transformations or
+paths.
+
+`uploadService.replace(...)` removes the newly uploaded object if the caller's
+database persistence callback fails, then removes the old object only after
+the persistence succeeds. A database and Cloudinary cannot share a native
+transaction: a failed old-object deletion can leave an orphan and should be
+retried by application-specific cleanup/monitoring.
+
 ## Web security boundary
 
 Authorization uses the persisted `User.role` as its source of truth with

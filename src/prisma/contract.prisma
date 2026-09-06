@@ -10,17 +10,26 @@ enum UserRole {
   @@type("pg/text@1")
 }
 
-model User {
-  id        Int      @id @default(autoincrement())
-  email     String   @unique
-  userName  String?
-  fullName  String?
-  password  String
-  createdAt DateTime @default(now())
-  updatedAt temporal.updatedAt()
-  role      UserRole @default(USER)
+enum AccountTokenType {
+  PASSWORD_RESET = "PASSWORD_RESET"
+  EMAIL_VERIFICATION = "EMAIL_VERIFICATION"
 
-  sessions Session[]
+  @@type("pg/text@1")
+}
+
+model User {
+  id              Int                  @id @default(autoincrement())
+  email           String               @unique
+  userName        String?
+  fullName        String?
+  password        String
+  createdAt       DateTime             @default(now())
+  updatedAt       temporal.updatedAt()
+  role            UserRole             @default(USER)
+  emailVerifiedAt DateTime?
+
+  sessions        Session[]
+  accountTokens   AccountToken[]
 }
 
 model Session {
@@ -37,8 +46,23 @@ model Session {
   rememberMe        Boolean   @default(false)
   createdAt         DateTime  @default(now())
 
-  user User @relation(fields: [userId], references: [id])
+  user              User      @relation(fields:[userId], references:[id])
 
   @@index([userId])
   @@index([familyId])
+}
+
+model AccountToken {
+  id         Int              @id @default(autoincrement())
+  userId     Int
+  type       AccountTokenType
+  tokenHash  String           @unique
+  expiresAt  DateTime
+  consumedAt DateTime?
+  createdAt  DateTime         @default(now())
+
+  user       User             @relation(fields:[userId], references:[id])
+
+  @@index([userId, type])
+  @@index([expiresAt])
 }

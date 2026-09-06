@@ -1,6 +1,7 @@
 node_modules/
 dist/
 coverage/
+uploads/
 /src/generated/prisma/
 
 # Local environment files; public templates stay committed.

@@ -4,7 +4,7 @@ type UserRecord = FieldOutputTypes["public"]["User"];
 
 export type PublicUserDto = Pick<
   UserRecord,
-  "id" | "email" | "userName" | "fullName" | "role" | "createdAt" | "updatedAt"
+  "id" | "email" | "userName" | "fullName" | "role" | "emailVerifiedAt" | "createdAt" | "updatedAt"
 >;
 
 export const toPublicUserDto = (user: PublicUserDto): PublicUserDto => ({
@@ -13,6 +13,7 @@ export const toPublicUserDto = (user: PublicUserDto): PublicUserDto => ({
   userName: user.userName,
   fullName: user.fullName,
   role: user.role,
+  emailVerifiedAt: user.emailVerifiedAt,
   createdAt: user.createdAt,
   updatedAt: user.updatedAt,
 });

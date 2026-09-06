@@ -83,3 +83,30 @@ export const logoutAll = asyncHandler(async (req: Request, res: Response) => {
     message: "Logged out from all sessions",
   });
 });
+
+export const forgotPassword = asyncHandler(async (req: Request, res: Response) => {
+  await authService.forgotPassword(req.body);
+  res.status(202).json({ success: true, message: "If the account exists, a password reset email has been sent" });
+});
+
+export const resetPassword = asyncHandler(async (req: Request, res: Response) => {
+  await authService.resetPassword(req.body);
+  clearRefreshCookie(res);
+  res.status(200).json({ success: true, message: "Password reset successfully. Please sign in again." });
+});
+
+export const changePassword = asyncHandler(async (req: Request, res: Response) => {
+  await authService.changePassword(req.auth!.userId, req.body);
+  clearRefreshCookie(res);
+  res.status(200).json({ success: true, message: "Password changed successfully. Please sign in again." });
+});
+
+export const resendVerification = asyncHandler(async (req: Request, res: Response) => {
+  await authService.resendVerification(req.body.email);
+  res.status(202).json({ success: true, message: "If the account exists and is unverified, a verification email has been sent" });
+});
+
+export const verifyEmail = asyncHandler(async (req: Request, res: Response) => {
+  await authService.verifyEmail(req.body.token);
+  res.status(200).json({ success: true, message: "Email verified successfully" });
+});

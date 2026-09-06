@@ -1,4 +1,6 @@
 import { z } from "zod";
+import { userRoleSchema } from "../../../auth/roles.js";
+import { paginationQuerySchema } from "../../../utils/pagination.js";
 
 export const createUserSchema = z.object({
   body: z.object({
@@ -24,3 +26,12 @@ export const updateUserSchema = z.object({
     message: "At least one profile field is required",
   }),
 });
+
+export const userListQuerySchema = z.object({
+  query: paginationQuerySchema.extend({
+    role: userRoleSchema.optional(),
+    sortBy: z.enum(["id", "email", "userName", "createdAt"]).default("createdAt"),
+  }).strict(),
+});
+
+export type UserListQuery = z.infer<typeof userListQuerySchema>["query"];

@@ -28,6 +28,10 @@ app.use(
 
 app.use(cookieParser());
 
+if (config.upload.enabled && config.upload.storage === "local") {
+  app.use("/uploads", express.static(config.upload.localDir, { fallthrough: true, index: false }));
+}
+
 app.use("/api/v1", globalApiRateLimit, routes);
 
 app.use(notFoundHandler);

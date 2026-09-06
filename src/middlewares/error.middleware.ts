@@ -11,6 +11,7 @@ import {
   ConflictError,
   ValidationError,
 } from "../errors/AppError.js";
+import { errorResponse } from "../utils/api-response.js";
 
 type ErrorLike = Error & {
   body?: unknown;
@@ -161,10 +162,7 @@ export const createErrorHandler = ({
 
     const responseMessage = redactText(publicError.message);
 
-    res.status(publicError.statusCode).json({
-      success: false,
-      message: responseMessage,
-      code: publicError.code,
+    res.status(publicError.statusCode).json(errorResponse(responseMessage, publicError.code, {
       ...(req.id && { requestId: req.id }),
       ...(publicError instanceof ValidationError &&
         publicError.details !== undefined && {
@@ -179,7 +177,7 @@ export const createErrorHandler = ({
             ),
           },
         }),
-    });
+    }));
   };
 
 export const globalErrorHandler = createErrorHandler();

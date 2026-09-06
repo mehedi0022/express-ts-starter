@@ -1,8 +1,9 @@
 import * as userRepository from "../repositories/user.repository.js";
 import { NotFoundError } from "../../../errors/AppError.js";
+import type { UserListQuery } from "../validations/user.validation.js";
 
-export const getAllUsers = async () => {
-  return userRepository.findAllUsers();
+export const getAllUsers = async (query: UserListQuery) => {
+  return userRepository.findAllUsers(query);
 };
 
 export const getUserById = async (id: number) => {

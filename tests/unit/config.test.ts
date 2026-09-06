@@ -16,6 +16,51 @@ describe("application configuration", () => {
     expect(config.database.migrationUrl).toBe(config.database.runtimeUrl);
   });
 
+  it("requires SMTP credentials only when email is enabled", () => {
+    expect(() => loadConfig({ ...validEnvironment, SMTP_ENABLED: "true" }))
+      .toThrow("SMTP_HOST");
+
+    const config = loadConfig({
+      ...validEnvironment,
+      SMTP_ENABLED: "true",
+      SMTP_HOST: "smtp.example.com",
+      SMTP_PORT: "587",
+      SMTP_SECURE: "false",
+      SMTP_USER: "smtp-user",
+      SMTP_PASSWORD: "smtp-password",
+      SMTP_FROM_EMAIL: "no-reply@example.com",
+      SMTP_FROM_NAME: "Starter App",
+      EMAIL_APP_URL: "https://app.example.com",
+    });
+
+    expect(config.smtp).toMatchObject({
+      enabled: true,
+      host: "smtp.example.com",
+      port: 587,
+      fromEmail: "no-reply@example.com",
+      fromName: "Starter App",
+    });
+  });
+
+  it("validates optional email branding without enabling SMTP", () => {
+    const config = loadConfig({
+      ...validEnvironment,
+      EMAIL_BRAND_NAME: "Acme",
+      EMAIL_PRIMARY_COLOR: "#7C3AED",
+      EMAIL_LOGO_URL: "https://cdn.example.com/logo.png",
+      EMAIL_SUPPORT_EMAIL: "support@example.com",
+    });
+
+    expect(config.email).toMatchObject({
+      brandName: "Acme",
+      primaryColor: "#7C3AED",
+      logoUrl: "https://cdn.example.com/logo.png",
+      supportEmail: "support@example.com",
+    });
+    expect(() => loadConfig({ ...validEnvironment, EMAIL_PRIMARY_COLOR: "blue" }))
+      .toThrow("#RRGGBB");
+  });
+
   it("supports separate migration credentials", () => {
     const config = loadConfig({ ...validEnvironment, DATABASE_MIGRATION_URL: "postgresql://admin:password@localhost:5432/starter" });
     expect(config.database.migrationUrl).not.toBe(config.database.runtimeUrl);

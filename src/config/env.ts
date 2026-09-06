@@ -6,6 +6,13 @@ const booleanString = z.preprocess(
   z.boolean(),
 );
 const optionalText = z.preprocess((value) => (value === "" ? undefined : value), z.string().trim().min(1).optional());
+const optionalHttpUrl = z.preprocess(
+  (value) => value === "" ? undefined : value,
+  z.string().url().refine(
+    (value) => ["http:", "https:"].includes(new URL(value).protocol),
+    "must be an HTTP(S) URL",
+  ).optional(),
+);
 const postgresUrl = z.string().url().refine(
   (value) => ["postgres:", "postgresql:"].includes(new URL(value).protocol),
   "must be a PostgreSQL URL",
@@ -76,17 +83,33 @@ const rawEnvSchema = z.object({
   SESSION_REMEMBER_ME_IDLE_TTL: durationString.default("7d"),
   SESSION_ABSOLUTE_TTL: durationString.default("30d"),
   SESSION_REVOKED_RETENTION: durationString.default("30d"),
+  PASSWORD_RESET_TOKEN_TTL: durationString.default("1h"),
+  EMAIL_VERIFICATION_TOKEN_TTL: durationString.default("24h"),
   SMTP_ENABLED: booleanString.default(false),
   SMTP_HOST: optionalText,
   SMTP_PORT: z.preprocess((value) => (value === "" || value === undefined ? undefined : value), z.coerce.number().int().positive().max(65_535).optional()),
   SMTP_SECURE: booleanString.default(false),
   SMTP_USER: optionalText,
   SMTP_PASSWORD: optionalText,
-  SMTP_FROM: optionalText,
+  SMTP_FROM_EMAIL: z.preprocess((value) => value === "" ? undefined : value, z.email().optional()),
+  SMTP_FROM_NAME: optionalText,
+  EMAIL_BRAND_NAME: z.string().trim().min(1).max(80).default("Express Starter"),
+  EMAIL_PRIMARY_COLOR: z.string().regex(/^#[0-9A-Fa-f]{6}$/, "must be a #RRGGBB color").default("#2563EB"),
+  EMAIL_LOGO_URL: optionalHttpUrl,
+  EMAIL_APP_URL: optionalHttpUrl,
+  EMAIL_SUPPORT_EMAIL: z.preprocess((value) => value === "" ? undefined : value, z.email().optional()),
+  EMAIL_FOOTER_TEXT: optionalText,
   CLOUDINARY_ENABLED: booleanString.default(false),
   CLOUDINARY_CLOUD_NAME: optionalText,
   CLOUDINARY_API_KEY: optionalText,
   CLOUDINARY_API_SECRET: optionalText,
+  UPLOAD_ENABLED: booleanString.default(false),
+  UPLOAD_STORAGE: z.enum(["local", "cloudinary"]).default("local"),
+  UPLOAD_LOCAL_DIR: z.string().trim().min(1).default("uploads"),
+  UPLOAD_MAX_FILE_SIZE_BYTES: z.coerce.number().int().positive().max(25 * 1024 * 1024).default(5 * 1024 * 1024),
+  UPLOAD_MAX_FILE_COUNT: z.coerce.number().int().positive().max(10).default(5),
+  UPLOAD_ALLOWED_MIME_TYPES: z.string().default("image/jpeg,image/png,image/webp"),
+  UPLOAD_CLOUDINARY_FOLDER: z.string().trim().regex(/^[a-zA-Z0-9][a-zA-Z0-9_/-]{0,119}$/).default("express-starter"),
 }).superRefine((value, context) => {
   for (const [key, url] of [["DATABASE_URL", value.DATABASE_URL], ["DATABASE_MIGRATION_URL", value.DATABASE_MIGRATION_URL]] as const) {
     if (!url) continue;
@@ -132,8 +155,11 @@ const rawEnvSchema = z.object({
       context.addIssue({ code: "custom", path: [key], message: "is required when the module is enabled" });
     }
   };
-  requireFields(value.SMTP_ENABLED, [["SMTP_HOST", value.SMTP_HOST], ["SMTP_PORT", value.SMTP_PORT], ["SMTP_USER", value.SMTP_USER], ["SMTP_PASSWORD", value.SMTP_PASSWORD], ["SMTP_FROM", value.SMTP_FROM]]);
+  requireFields(value.SMTP_ENABLED, [["SMTP_HOST", value.SMTP_HOST], ["SMTP_PORT", value.SMTP_PORT], ["SMTP_USER", value.SMTP_USER], ["SMTP_PASSWORD", value.SMTP_PASSWORD], ["SMTP_FROM_EMAIL", value.SMTP_FROM_EMAIL], ["EMAIL_APP_URL", value.EMAIL_APP_URL]]);
   requireFields(value.CLOUDINARY_ENABLED, [["CLOUDINARY_CLOUD_NAME", value.CLOUDINARY_CLOUD_NAME], ["CLOUDINARY_API_KEY", value.CLOUDINARY_API_KEY], ["CLOUDINARY_API_SECRET", value.CLOUDINARY_API_SECRET]]);
+  if (value.UPLOAD_ENABLED && value.UPLOAD_STORAGE === "cloudinary" && !value.CLOUDINARY_ENABLED) {
+    context.addIssue({ code: "custom", path: ["CLOUDINARY_ENABLED"], message: "must be true when UPLOAD_STORAGE=cloudinary" });
+  }
 });
 
 const parseTrustProxy = (value: string): boolean | number | string => {
@@ -205,8 +231,38 @@ export const loadConfig = (source: NodeJS.ProcessEnv = process.env) => {
       absoluteTtlMs: parseDurationMs(value.SESSION_ABSOLUTE_TTL),
       revokedRetentionMs: parseDurationMs(value.SESSION_REVOKED_RETENTION),
     },
-    smtp: { enabled: value.SMTP_ENABLED, host: value.SMTP_HOST, port: value.SMTP_PORT, secure: value.SMTP_SECURE, user: value.SMTP_USER, password: value.SMTP_PASSWORD, from: value.SMTP_FROM },
+    accountToken: {
+      passwordResetTtlMs: parseDurationMs(value.PASSWORD_RESET_TOKEN_TTL),
+      emailVerificationTtlMs: parseDurationMs(value.EMAIL_VERIFICATION_TOKEN_TTL),
+    },
+    smtp: {
+      enabled: value.SMTP_ENABLED,
+      host: value.SMTP_HOST,
+      port: value.SMTP_PORT,
+      secure: value.SMTP_SECURE,
+      user: value.SMTP_USER,
+      password: value.SMTP_PASSWORD,
+      fromEmail: value.SMTP_FROM_EMAIL,
+      fromName: value.SMTP_FROM_NAME,
+    },
+    email: {
+      brandName: value.EMAIL_BRAND_NAME,
+      primaryColor: value.EMAIL_PRIMARY_COLOR,
+      logoUrl: value.EMAIL_LOGO_URL,
+      appUrl: value.EMAIL_APP_URL,
+      supportEmail: value.EMAIL_SUPPORT_EMAIL,
+      footerText: value.EMAIL_FOOTER_TEXT,
+    },
     cloudinary: { enabled: value.CLOUDINARY_ENABLED, cloudName: value.CLOUDINARY_CLOUD_NAME, apiKey: value.CLOUDINARY_API_KEY, apiSecret: value.CLOUDINARY_API_SECRET },
+    upload: {
+      enabled: value.UPLOAD_ENABLED,
+      storage: value.UPLOAD_STORAGE,
+      localDir: value.UPLOAD_LOCAL_DIR,
+      maxFileSizeBytes: value.UPLOAD_MAX_FILE_SIZE_BYTES,
+      maxFileCount: value.UPLOAD_MAX_FILE_COUNT,
+      allowedMimeTypes: value.UPLOAD_ALLOWED_MIME_TYPES.split(",").map((type) => type.trim()).filter(Boolean),
+      cloudinaryFolder: value.UPLOAD_CLOUDINARY_FOLDER,
+    },
   } as const;
 };
 
