@@ -1,13 +1,19 @@
-import { AppError } from "../../../errors/AppError.js";
+import {
+  AuthenticationError,
+  ConflictError,
+} from "../../../errors/AppError.js";
 import { hashPassword, verifyPassword } from "../../../utils/password.util.js";
 import { Temporal } from "temporal-polyfill";
+import { millisecondsUntil } from "../../../config/session-policy.js";
 import {
   signAccessToken,
-  signRefreshToken,
+  issueRefreshToken,
   verifyRefreshToken,
 } from "../../../utils/jwt.util.js";
+import { randomUUID } from "node:crypto";
 
 import * as userRepository from "../../user/repositories/user.repository.js";
+import { toPublicUserDto } from "../../user/user.dto.js";
 import * as sessionService from "../../session/services/session.service.js";
 
 import type { LoginInput, RegisterInput } from "../auth.types.js";
@@ -16,7 +22,7 @@ export const register = async (data: RegisterInput) => {
   const existingUser = await userRepository.findUserByEmail(data.email);
 
   if (existingUser) {
-    throw new AppError("User already exists with this email", 409);
+    throw new ConflictError("User already exists with this email");
   }
 
   const hashedPassword = await hashPassword(data.password);
@@ -26,58 +32,46 @@ export const register = async (data: RegisterInput) => {
     password: hashedPassword,
   });
 
-  const { password: _password, ...safeUser } = user;
-
-  return safeUser;
+  return user;
 };
 
 export const login = async (data: LoginInput) => {
   const user = await userRepository.findUserByEmail(data.email);
 
   if (!user) {
-    throw new AppError("Invalid email or password", 401);
+    throw new AuthenticationError("Invalid email or password");
   }
 
   const isPasswordValid = await verifyPassword(user.password, data.password);
 
   if (!isPasswordValid) {
-    throw new AppError("Invalid email or password", 401);
+    throw new AuthenticationError("Invalid email or password");
   }
 
-  const accessToken = signAccessToken({
-    userId: user.id,
-  });
-
-  const refreshToken = signRefreshToken({
-    userId: user.id,
-  });
-
   const now = Temporal.Now.instant();
-
-  const refreshHours = data.rememberMe ? 24 * 7 : 24;
-
-  const expiresAt = now.add({
-    hours: refreshHours,
-  });
-
-  const absoluteExpiresAt = now.add({
-    hours: 24 * 30,
-  });
+  const window = sessionService.getNextSessionWindow(now, data.rememberMe);
+  const refresh = issueRefreshToken(
+    { userId: user.id },
+    millisecondsUntil(window.expiresAt, now),
+  );
+  const accessToken = signAccessToken({ userId: user.id });
 
   await sessionService.createRefreshSession({
     userId: user.id,
-    refreshToken,
-    expiresAt,
-    absoluteExpiresAt,
+    jti: refresh.jti,
+    familyId: randomUUID(),
+    refreshToken: refresh.token,
+    expiresAt: window.expiresAt,
+    absoluteExpiresAt: window.absoluteExpiresAt,
     rememberMe: data.rememberMe,
   });
 
-  const { password: _password, ...safeUser } = user;
-
   return {
-    user: safeUser,
+    user: toPublicUserDto(user),
     accessToken,
-    refreshToken,
+    refreshToken: refresh.token,
+    refreshExpiresAt: window.expiresAt,
+    rememberMe: data.rememberMe,
   };
 };
 
@@ -87,59 +81,62 @@ export const refreshAccessToken = async (refreshToken: string) => {
   try {
     payload = verifyRefreshToken(refreshToken);
   } catch {
-    throw new AppError("Invalid or expired refresh token", 401);
+    throw new AuthenticationError("Invalid or expired refresh token");
   }
 
-  const session = await sessionService.findValidSession(refreshToken);
+  const currentSession = await sessionService.getRefreshSession(refreshToken);
 
-  if (!session) {
-    throw new AppError("Session is invalid or expired", 401);
-  }
-
-  if (session.userId !== payload.userId) {
-    throw new AppError("Invalid session", 401);
+  if (
+    !currentSession
+    || currentSession.userId !== payload.userId
+    || currentSession.jti !== payload.jti
+  ) {
+    throw new AuthenticationError("Invalid or expired refresh token");
   }
 
   const now = Temporal.Now.instant();
-
-  const absoluteExpired =
-    Temporal.Instant.compare(session.absoluteExpiresAt, now) <= 0;
-
-  if (absoluteExpired) {
-    throw new AppError("Session lifetime expired. Please login again.", 401);
+  if (Temporal.Instant.compare(currentSession.absoluteExpiresAt, now) <= 0) {
+    throw new AuthenticationError("Invalid or expired refresh token");
   }
 
-  await sessionService.revokeSession(session.id);
+  const window = sessionService.getNextSessionWindow(
+    now,
+    currentSession.rememberMe,
+    currentSession.absoluteExpiresAt,
+  );
+  const replacement = issueRefreshToken(
+    { userId: payload.userId },
+    millisecondsUntil(window.expiresAt, now),
+  );
 
-  const newAccessToken = signAccessToken({
+  const rotation = await sessionService.rotateRefreshSession({
     userId: payload.userId,
+    currentJti: payload.jti,
+    currentRefreshToken: refreshToken,
+    replacementJti: replacement.jti,
+    replacementRefreshToken: replacement.token,
+    replacementExpiresAt: window.expiresAt,
   });
 
-  const newRefreshToken = signRefreshToken({
-    userId: payload.userId,
-  });
+  if (rotation.status !== "rotated") {
+    throw new AuthenticationError("Invalid or expired refresh token");
+  }
 
-  const refreshHours = session.rememberMe ? 24 * 7 : 24;
-
-  const candidateExpiry = now.add({
-    hours: refreshHours,
-  });
-
-  const expiresAt =
-    Temporal.Instant.compare(candidateExpiry, session.absoluteExpiresAt) > 0
-      ? session.absoluteExpiresAt
-      : candidateExpiry;
-
-  await sessionService.createRefreshSession({
-    userId: payload.userId,
-    refreshToken: newRefreshToken,
-    expiresAt,
-    absoluteExpiresAt: session.absoluteExpiresAt,
-    rememberMe: session.rememberMe,
-  });
+  const newAccessToken = signAccessToken({ userId: rotation.userId });
 
   return {
     accessToken: newAccessToken,
-    refreshToken: newRefreshToken,
+    refreshToken: replacement.token,
+    refreshExpiresAt: rotation.expiresAt,
+    rememberMe: rotation.rememberMe,
   };
 };
+
+export const logout = async (refreshToken?: string) => {
+  if (!refreshToken) return false;
+  return sessionService.revokeRefreshSession(refreshToken);
+};
+
+/** Revokes every refresh session for the user, including the current one. */
+export const logoutAll = async (userId: number) =>
+  sessionService.revokeAllUserSessions(userId);

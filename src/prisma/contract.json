@@ -16,11 +16,53 @@
   "domain": {
     "namespaces": {
       "public": {
+        "enum": {
+          "UserRole": {
+            "codecId": "pg/text@1",
+            "members": [
+              {
+                "name": "SUPER_ADMIN",
+                "value": "SUPER_ADMIN"
+              },
+              {
+                "name": "ADMIN",
+                "value": "ADMIN"
+              },
+              {
+                "name": "USER",
+                "value": "USER"
+              },
+              {
+                "name": "CUSTOMER",
+                "value": "CUSTOMER"
+              },
+              {
+                "name": "MODERATOR",
+                "value": "MODERATOR"
+              },
+              {
+                "name": "AUTHOR",
+                "value": "AUTHOR"
+              },
+              {
+                "name": "MANAGER",
+                "value": "MANAGER"
+              }
+            ]
+          }
+        },
         "models": {
           "Session": {
             "fields": {
               "absoluteExpiresAt": {
                 "nullable": false,
+                "type": {
+                  "codecId": "pg/timestamptz-temporal@1",
+                  "kind": "scalar"
+                }
+              },
+              "consumedAt": {
+                "nullable": true,
                 "type": {
                   "codecId": "pg/timestamptz-temporal@1",
                   "kind": "scalar"
@@ -40,10 +82,24 @@
                   "kind": "scalar"
                 }
               },
+              "familyId": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                }
+              },
               "id": {
                 "nullable": false,
                 "type": {
                   "codecId": "pg/int4@1",
+                  "kind": "scalar"
+                }
+              },
+              "jti": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/text@1",
                   "kind": "scalar"
                 }
               },
@@ -58,6 +114,13 @@
                 "nullable": false,
                 "type": {
                   "codecId": "pg/bool@1",
+                  "kind": "scalar"
+                }
+              },
+              "replacedByJti": {
+                "nullable": true,
+                "type": {
+                  "codecId": "pg/text@1",
                   "kind": "scalar"
                 }
               },
@@ -98,20 +161,32 @@
                 "absoluteExpiresAt": {
                   "column": "absoluteExpiresAt"
                 },
+                "consumedAt": {
+                  "column": "consumedAt"
+                },
                 "createdAt": {
                   "column": "createdAt"
                 },
                 "expiresAt": {
                   "column": "expiresAt"
                 },
+                "familyId": {
+                  "column": "familyId"
+                },
                 "id": {
                   "column": "id"
+                },
+                "jti": {
+                  "column": "jti"
                 },
                 "refreshTokenHash": {
                   "column": "refreshTokenHash"
                 },
                 "rememberMe": {
                   "column": "rememberMe"
+                },
+                "replacedByJti": {
+                  "column": "replacedByJti"
                 },
                 "revokedAt": {
                   "column": "revokedAt"
@@ -159,6 +234,19 @@
                 "type": {
                   "codecId": "pg/text@1",
                   "kind": "scalar"
+                }
+              },
+              "role": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                },
+                "valueSet": {
+                  "entityKind": "enum",
+                  "entityName": "UserRole",
+                  "namespaceId": "public",
+                  "plane": "domain"
                 }
               },
               "updatedAt": {
@@ -210,6 +298,9 @@
                 "password": {
                   "column": "password"
                 },
+                "role": {
+                  "column": "role"
+                },
                 "updatedAt": {
                   "column": "updatedAt"
                 },
@@ -237,6 +328,11 @@
                   "nativeType": "timestamptz",
                   "nullable": false
                 },
+                "consumedAt": {
+                  "codecId": "pg/timestamptz-temporal@1",
+                  "nativeType": "timestamptz",
+                  "nullable": true
+                },
                 "createdAt": {
                   "codecId": "pg/timestamptz-temporal@1",
                   "default": {
@@ -251,6 +347,11 @@
                   "nativeType": "timestamptz",
                   "nullable": false
                 },
+                "familyId": {
+                  "codecId": "pg/text@1",
+                  "nativeType": "text",
+                  "nullable": false
+                },
                 "id": {
                   "codecId": "pg/int4@1",
                   "default": {
@@ -258,6 +359,11 @@
                     "kind": "function"
                   },
                   "nativeType": "int4",
+                  "nullable": false
+                },
+                "jti": {
+                  "codecId": "pg/text@1",
+                  "nativeType": "text",
                   "nullable": false
                 },
                 "refreshTokenHash": {
@@ -273,6 +379,11 @@
                   },
                   "nativeType": "bool",
                   "nullable": false
+                },
+                "replacedByJti": {
+                  "codecId": "pg/text@1",
+                  "nativeType": "text",
+                  "nullable": true
                 },
                 "revokedAt": {
                   "codecId": "pg/timestamptz-temporal@1",
@@ -306,6 +417,14 @@
               "indexes": [
                 {
                   "columns": [
+                    "familyId"
+                  ],
+                  "name": "session_familyId_idx_3d03045e",
+                  "prefix": "session_familyId_idx",
+                  "unique": false
+                },
+                {
+                  "columns": [
                     "userId"
                   ],
                   "name": "session_userId_idx_a489d58a",
@@ -321,12 +440,24 @@
               "uniques": [
                 {
                   "columns": [
+                    "jti"
+                  ]
+                },
+                {
+                  "columns": [
                     "refreshTokenHash"
                   ]
                 }
               ]
             },
             "user": {
+              "checks": [
+                {
+                  "expression": "\"role\" IN ('SUPER_ADMIN', 'ADMIN', 'USER', 'CUSTOMER', 'MODERATOR', 'AUTHOR', 'MANAGER')",
+                  "name": "user_role_check_6626637a",
+                  "prefix": "user_role_check"
+                }
+              ],
               "columns": {
                 "createdAt": {
                   "codecId": "pg/timestamptz-temporal@1",
@@ -361,6 +492,21 @@
                   "nativeType": "text",
                   "nullable": false
                 },
+                "role": {
+                  "codecId": "pg/text@1",
+                  "default": {
+                    "kind": "literal",
+                    "value": "USER"
+                  },
+                  "nativeType": "text",
+                  "nullable": false,
+                  "valueSet": {
+                    "entityKind": "valueSet",
+                    "entityName": "UserRole",
+                    "namespaceId": "public",
+                    "plane": "storage"
+                  }
+                },
                 "updatedAt": {
                   "codecId": "pg/timestamptz-temporal@1",
                   "nativeType": "timestamptz",
@@ -387,18 +533,54 @@
                 }
               ]
             }
+          },
+          "valueSet": {
+            "UserRole": {
+              "kind": "valueSet",
+              "values": [
+                "SUPER_ADMIN",
+                "ADMIN",
+                "USER",
+                "CUSTOMER",
+                "MODERATOR",
+                "AUTHOR",
+                "MANAGER"
+              ]
+            }
           }
         },
         "id": "public",
         "kind": "postgres-schema"
       }
     },
-    "storageHash": "f8d8486d4ee3aa8a1551cdf593fc208457bfbf3b99a85cd36e8e4936ab7447e4"
+    "storageHash": "ef7bd88d8f2b9ba740a317a5ccfbb1ae897478e061d6306515f8e8ab45b6d679"
   },
   "execution": {
-    "executionHash": "eab594c7ae5d605f3ec23efb87abfb84738b65ef9804d7f3134ad6d40ab02ce0",
+    "executionHash": "11f07f7ed1fa2703e55967f5a399cb4c7f301f217257d3bead04142e03f0cdf0",
     "mutations": {
       "defaults": [
+        {
+          "onCreate": {
+            "id": "uuidv4",
+            "kind": "generator"
+          },
+          "ref": {
+            "column": "familyId",
+            "namespace": "public",
+            "table": "session"
+          }
+        },
+        {
+          "onCreate": {
+            "id": "uuidv4",
+            "kind": "generator"
+          },
+          "ref": {
+            "column": "jti",
+            "namespace": "public",
+            "table": "session"
+          }
+        },
         {
           "onCreate": {
             "id": "instantNow",

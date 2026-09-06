@@ -1,10 +1,31 @@
 import type { CookieOptions } from "express";
-import { env } from "../config/env.js";
 
-export const refreshTokenCookieOptions: CookieOptions = {
+import { config } from "../config/env.js";
+
+const refreshTokenCookieBaseOptions: CookieOptions = {
   httpOnly: true,
-  secure: env.NODE_ENV === "production",
-  sameSite: env.NODE_ENV === "production" ? "none" : "lax",
-  path: "/",
-  maxAge: 7 * 24 * 60 * 60 * 1000,
+  secure: config.cookie.secure,
+  sameSite: config.cookie.sameSite,
+  domain: config.cookie.domain,
+  path: config.cookie.path,
 };
+
+export const getRefreshTokenCookieOptions = (
+  rememberMe: boolean,
+  maxAgeMs: number,
+): CookieOptions => ({
+  ...refreshTokenCookieBaseOptions,
+  ...(rememberMe ? { maxAge: maxAgeMs } : {}),
+});
+
+export const refreshTokenClearCookieOptions: CookieOptions =
+  refreshTokenCookieBaseOptions;
+
+// Clear cookies issued by starter versions that used Path=/ before the
+// narrower auth-only default was introduced.
+export const refreshTokenLegacyClearCookieOptions: CookieOptions = {
+  ...refreshTokenCookieBaseOptions,
+  path: "/",
+};
+
+export const refreshTokenCookieName = config.cookie.name;

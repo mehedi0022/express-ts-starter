@@ -2,7 +2,7 @@ import type { Request, Response, NextFunction, RequestHandler } from "express";
 
 import type { ZodType } from "zod";
 
-import { AppError } from "../errors/AppError.js";
+import { ValidationError } from "../errors/AppError.js";
 
 export const validate = (schema: ZodType): RequestHandler => {
   return (req: Request, res: Response, next: NextFunction) => {
@@ -18,11 +18,7 @@ export const validate = (schema: ZodType): RequestHandler => {
         message: issue.message,
       }));
 
-      const message = errors
-        .map((error) => `${error.field}: ${error.message}`)
-        .join(", ");
-
-      return next(new AppError(message || "Validation failed", 400));
+      return next(new ValidationError("Validation failed", errors));
     }
 
     const validatedData = result.data as {

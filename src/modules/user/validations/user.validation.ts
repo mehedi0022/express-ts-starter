@@ -2,20 +2,25 @@ import { z } from "zod";
 
 export const createUserSchema = z.object({
   body: z.object({
-    userName: z
-      .string("Username is required")
-      .min(2, "Username must be at least 2 characters"),
-    fullName: z
-      .string("Full name is required")
-      .min(3, "Full name must be at least 3 characters"),
-    email: z.email("Invalid email address"),
-    password: z
-      .string("Password is required")
-      .min(1, "Password is required")
-      .min(8, "Password must be at least 8 characters")
-      .regex(/[A-Z]/, "Must contain at least one uppercase letter")
-      .regex(/[a-z]/, "Must contain at least one lowercase letter")
-      .regex(/[0-9]/, "Must contain at least one number")
-      .regex(/[^A-Za-z0-9]/, "Must contain at least one special character"),
+    userName: z.string().min(2),
+    fullName: z.string().min(3),
+    email: z.email(),
+    password: z.string().min(8),
+  }),
+});
+
+const userIdParams = z.object({
+  id: z.coerce.number().int().positive(),
+});
+
+export const userIdSchema = z.object({ params: userIdParams });
+
+export const updateUserSchema = z.object({
+  params: userIdParams,
+  body: z.object({
+    userName: z.string().min(2).nullable().optional(),
+    fullName: z.string().min(3).nullable().optional(),
+  }).strict().refine((body) => Object.keys(body).length > 0, {
+    message: "At least one profile field is required",
   }),
 });
