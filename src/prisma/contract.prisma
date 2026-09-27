@@ -1,16 +1,4 @@
 // use prisma-8
-enum UserRole {
-  @@type("pg/text@1")
-  SUPER_ADMIN = "SUPER_ADMIN"
-  ADMIN = "ADMIN"
-  MANAGER = "MANAGER"
-  EDITOR = "EDITOR"
-  MODERATOR = "MODERATOR"
-  AUTHOR = "AUTHOR"
-  SELLER = "SELLER"
-  CUSTOMER = "CUSTOMER"
-}
-
 enum AccountTokenType {
   @@type("pg/text@1")
   PASSWORD_RESET = "PASSWORD_RESET"
@@ -70,9 +58,8 @@ model User {
   password        String
   createdAt       DateTime             @default(now())
   updatedAt       temporal.updatedAt()
-  role            UserRole             @default(EDITOR)
-  roleId          Int?
-  rbacRole        Role?                @relation(fields:[roleId], references:[id], onDelete: Restrict)
+  roleId          Int
+  rbacRole        Role                 @relation(fields:[roleId], references:[id], onDelete: Restrict)
   isActive        Boolean              @default(true)
   emailVerifiedAt DateTime?
 

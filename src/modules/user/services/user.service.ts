@@ -1,17 +1,31 @@
 import * as userRepository from "../repositories/user.repository.js";
+import * as accountTokenRepository from "../../auth/repositories/account-token.repository.js";
+
 import {
   AuthorizationError,
   ConflictError,
   NotFoundError,
 } from "../../../errors/AppError.js";
-import type { UserListQuery } from "../validations/user.validation.js";
-import type { UserRole } from "../../../auth/roles.js";
+
+import type { UserListQuery } from "../user.types.js";
+
 import { hashPassword } from "../../../utils/password.util.js";
-import { canCreateRole } from "../../../auth/role-hierarchy.js";
-import { canAssignRole, canManageRole } from "../../../auth/role-hierarchy.js";
-import * as accountTokenRepository from "../../auth/repositories/account-token.repository.js";
 import { Temporal } from "temporal-polyfill";
-import { toAuthenticatedUserDto } from "../user.dto.js";
+
+const SUPER_ADMIN_ROLE_KEY = "SUPER_ADMIN";
+
+type ActorContext = {
+  userId: number;
+  roleId: number;
+  roleKey: string;
+  roleRank: number;
+};
+
+const canManageTarget = (actor: ActorContext, targetRoleRank: number) =>
+  actor.roleRank > targetRoleRank;
+
+const canAssignRole = (actor: ActorContext, roleRank: number) =>
+  actor.roleRank > roleRank;
 
 export const getAllUsers = async (query: UserListQuery) => {
   return userRepository.findAllUsers(query);
@@ -19,12 +33,16 @@ export const getAllUsers = async (query: UserListQuery) => {
 
 export const getUserById = async (id: number) => {
   const user = await userRepository.findUserById(id);
-  if (!user) throw new NotFoundError("User not found");
+
+  if (!user) {
+    throw new NotFoundError("User not found");
+  }
+
   return user;
 };
 
 export const createUser = async (
-  actorRole: UserRole,
+  actor: ActorContext,
   data: {
     userName: string;
     fullName: string;
@@ -34,107 +52,150 @@ export const createUser = async (
   },
 ) => {
   const email = data.email.trim().toLowerCase();
-  const role = await userRepository.findRoleById(data.roleId);
-  if (!role) throw new NotFoundError("Role not found");
 
-  if (!canCreateRole(actorRole, role.key as UserRole)) {
+  const role = await userRepository.findRoleById(data.roleId);
+
+  if (!role) {
+    throw new NotFoundError("Role not found");
+  }
+
+  if (!canAssignRole(actor, role.rank)) {
     throw new AuthorizationError("You cannot create a user with this role");
   }
 
-  if (await userRepository.findUserIdByEmail(email)) {
+  const existingUser = await userRepository.findUserIdByEmail(email);
+
+  if (existingUser) {
     throw new ConflictError("A user with this email already exists");
   }
 
   return userRepository.createUser({
-    ...data,
+    userName: data.userName,
+    fullName: data.fullName,
     email,
     password: await hashPassword(data.password),
-    role: role.key as UserRole,
     roleId: role.id,
   });
 };
 
 export const getCurrentUser = async (id: number) => {
   const user = await getUserById(id);
-  return toAuthenticatedUserDto(user, await userRepository.getPermissionKeysForUserId(id));
+
+  const permissions = await userRepository.getPermissionKeysForUserId(id);
+
+  return {
+    ...user,
+    permissions,
+  };
 };
 
 export const updateUser = async (
-  actor: { userId: number; role: UserRole },
+  actor: ActorContext,
   id: number,
-  data: { userName?: string | null; fullName?: string | null },
+  data: {
+    userName?: string | null;
+    fullName?: string | null;
+  },
 ) => {
   const target = await userRepository.findUserById(id);
-  if (!target) throw new NotFoundError("User not found");
 
-  if (actor.userId !== id && !canManageRole(actor.role, target.role)) {
+  if (!target) {
+    throw new NotFoundError("User not found");
+  }
+
+  const isOwnAccount = actor.userId === id;
+
+  if (!isOwnAccount && !canManageTarget(actor, target.role.rank)) {
     throw new AuthorizationError("You cannot update this user");
   }
 
   const user = await userRepository.updateUserById(id, data);
-  if (!user) throw new NotFoundError("User not found");
+
+  if (!user) {
+    throw new NotFoundError("User not found");
+  }
+
   return user;
 };
 
 export const changeUserRole = async (
-  actor: { userId: number; role: UserRole },
+  actor: ActorContext,
   id: number,
   newRoleId: number,
 ) => {
   const target = await userRepository.findUserById(id);
-  if (!target) throw new NotFoundError("User not found");
-  const newRole = await userRepository.findRoleById(newRoleId);
-  if (!newRole) throw new NotFoundError("Role not found");
 
-  if (
-    !canManageRole(actor.role, target.role) ||
-    !canAssignRole(actor.role, newRole.key as UserRole)
-  ) {
-    throw new AuthorizationError("You cannot change this user's role");
+  if (!target) {
+    throw new NotFoundError("User not found");
   }
 
-  if (actor.userId === id && target.role !== newRole.key) {
+  const newRole = await userRepository.findRoleById(newRoleId);
+
+  if (!newRole) {
+    throw new NotFoundError("Role not found");
+  }
+
+  if (actor.userId === id) {
     throw new ConflictError("You cannot change your own role");
   }
 
-  if (target.role === newRole.key) return target;
+  if (!canManageTarget(actor, target.role.rank)) {
+    throw new AuthorizationError("You cannot change this user's role");
+  }
+
+  if (!canAssignRole(actor, newRole.rank)) {
+    throw new AuthorizationError("You cannot assign this role");
+  }
+
+  if (target.roleId === newRole.id) {
+    return target;
+  }
 
   if (
-    target.role === "SUPER_ADMIN" &&
+    target.role.key === SUPER_ADMIN_ROLE_KEY &&
     target.isActive &&
-    (await userRepository.countActiveSuperAdmins()) <= 1
+    (await userRepository.countActiveUsersByRoleKey(SUPER_ADMIN_ROLE_KEY)) <= 1
   ) {
     throw new ConflictError("The last active SUPER_ADMIN cannot be demoted");
   }
 
-  const user = await userRepository.updateUserRoleById(id, newRoleId);
-  if (!user) throw new NotFoundError("User not found");
+  const user = await userRepository.updateUserRoleById(id, newRole.id);
+
+  if (!user) {
+    throw new NotFoundError("User not found");
+  }
+
   return user;
 };
 
 export const changeUserStatus = async (
-  actor: { userId: number; role: UserRole },
+  actor: ActorContext,
   id: number,
   isActive: boolean,
 ) => {
   const target = await userRepository.findUserById(id);
-  if (!target) throw new NotFoundError("User not found");
+
+  if (!target) {
+    throw new NotFoundError("User not found");
+  }
 
   if (actor.userId === id && !isActive) {
     throw new ConflictError("You cannot deactivate your own account");
   }
 
-  if (!canManageRole(actor.role, target.role)) {
+  if (!canManageTarget(actor, target.role.rank)) {
     throw new AuthorizationError("You cannot change this user's status");
   }
 
-  if (target.isActive === isActive) return target;
+  if (target.isActive === isActive) {
+    return target;
+  }
 
   if (
-    target.role === "SUPER_ADMIN" &&
+    target.role.key === SUPER_ADMIN_ROLE_KEY &&
     target.isActive &&
     !isActive &&
-    (await userRepository.countActiveSuperAdmins()) <= 1
+    (await userRepository.countActiveUsersByRoleKey(SUPER_ADMIN_ROLE_KEY)) <= 1
   ) {
     throw new ConflictError(
       "The last active SUPER_ADMIN cannot be deactivated",
@@ -145,17 +206,24 @@ export const changeUserStatus = async (
     id,
     isActive,
   );
-  if (!user) throw new NotFoundError("User not found");
+
+  if (!user) {
+    throw new NotFoundError("User not found");
+  }
+
   return user;
 };
 
 export const resetUserPassword = async (
-  actor: { userId: number; role: UserRole },
+  actor: ActorContext,
   id: number,
   newPassword: string,
 ) => {
   const target = await userRepository.findUserById(id);
-  if (!target) throw new NotFoundError("User not found");
+
+  if (!target) {
+    throw new NotFoundError("User not found");
+  }
 
   if (actor.userId === id) {
     throw new ConflictError(
@@ -163,7 +231,7 @@ export const resetUserPassword = async (
     );
   }
 
-  if (!canManageRole(actor.role, target.role)) {
+  if (!canManageTarget(actor, target.role.rank)) {
     throw new AuthorizationError("You cannot reset this user's password");
   }
 
@@ -173,5 +241,7 @@ export const resetUserPassword = async (
     now: Temporal.Now.instant(),
   });
 
-  if (!updated) throw new NotFoundError("User not found");
+  if (!updated) {
+    throw new NotFoundError("User not found");
+  }
 };

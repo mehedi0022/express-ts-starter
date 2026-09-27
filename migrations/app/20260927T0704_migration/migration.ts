@@ -1,6 +1,6 @@
 #!/usr/bin/env -S node
-import type { Contract as End } from '../../snapshots/e7ed36f65957ff24881fde5de63fe4acf159fefe1b9e0590e947ee4f7edec3ac/contract';
-import endContract from '../../snapshots/e7ed36f65957ff24881fde5de63fe4acf159fefe1b9e0590e947ee4f7edec3ac/contract.json' with { type: 'json' };
+import type { Contract as End } from '../../snapshots/2be1efa77cfc0d227c357ed867fa5ea77691d9e089a2e6feb2d1ded6622a0d92/contract';
+import endContract from '../../snapshots/2be1efa77cfc0d227c357ed867fa5ea77691d9e089a2e6feb2d1ded6622a0d92/contract.json' with { type: 'json' };
 import {
   Migration,
   MigrationCLI,
@@ -158,25 +158,14 @@ export default class M extends Migration<never, End> {
             codecRef: { codecId: 'pg/bool@1' },
           }),
           col('password', 'text', { notNull: true, codecRef: { codecId: 'pg/text@1' } }),
-          col('role', 'text', {
-            notNull: true,
-            default: lit('EDITOR'),
-            codecRef: { codecId: 'pg/text@1' },
-          }),
-          col('roleId', 'int4', { codecRef: { codecId: 'pg/int4@1' } }),
+          col('roleId', 'int4', { notNull: true, codecRef: { codecId: 'pg/int4@1' } }),
           col('updatedAt', 'timestamptz', {
             notNull: true,
             codecRef: { codecId: 'pg/timestamptz-temporal@1' },
           }),
           col('userName', 'text', { codecRef: { codecId: 'pg/text@1' } }),
         ],
-        constraints: [
-          primaryKey(['id']),
-          checkExpression(
-            'user_role_check_c54f5281',
-            "\"role\" IN ('SUPER_ADMIN', 'ADMIN', 'MANAGER', 'EDITOR', 'MODERATOR', 'AUTHOR', 'SELLER', 'CUSTOMER')",
-          ),
-        ],
+        constraints: [primaryKey(['id'])],
       }),
       this.addUnique({
         schema: 'public',

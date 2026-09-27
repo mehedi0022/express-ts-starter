@@ -10,6 +10,4 @@ export const permissions = {
   rbacPermissionsManage: "rbac:permissions:manage",
 } as const;
 
-// Route declarations use this catalogue for compile-time safety. Actual grants
-// are resolved from RolePermission records in the database.
 export type Permission = (typeof permissions)[keyof typeof permissions];

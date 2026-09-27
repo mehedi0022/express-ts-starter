@@ -2,29 +2,25 @@ import type { RequestHandler } from "express";
 
 import type { Permission } from "../auth/authorization.js";
 import { AuthenticationError, AuthorizationError } from "../errors/AppError.js";
-import type { UserRole } from "../auth/roles.js";
 
 const getAuth = (auth: Express.Request["auth"]) => {
-  if (!auth) throw new AuthenticationError();
+  if (!auth) {
+    throw new AuthenticationError();
+  }
+
   return auth;
 };
 
-export const requireRole = (...allowedRoles: readonly UserRole[]): RequestHandler =>
+export const requirePermission =
+  (permission: Permission): RequestHandler =>
   (req, _res, next) => {
     try {
       const auth = getAuth(req.auth);
-      if (!allowedRoles.includes(auth.role)) throw new AuthorizationError();
-      next();
-    } catch (error) {
-      next(error);
-    }
-  };
 
-export const requirePermission = (permission: Permission): RequestHandler =>
-  (req, _res, next) => {
-    try {
-      const auth = getAuth(req.auth);
-      if (!auth.permissions.includes(permission)) throw new AuthorizationError();
+      if (!auth.permissions.includes(permission)) {
+        throw new AuthorizationError();
+      }
+
       next();
     } catch (error) {
       next(error);
@@ -33,23 +29,22 @@ export const requirePermission = (permission: Permission): RequestHandler =>
 
 type OwnershipOptions = {
   param?: string;
-  allowRoles?: readonly UserRole[];
 };
 
-export const requireOwnership = ({
-  param = "id",
-  allowRoles = [],
-}: OwnershipOptions = {}): RequestHandler => (req, _res, next) => {
-  try {
-    const auth = getAuth(req.auth);
-    if (allowRoles.includes(auth.role)) return next();
+export const requireOwnership =
+  ({ param = "id" }: OwnershipOptions = {}): RequestHandler =>
+  (req, _res, next) => {
+    try {
+      const auth = getAuth(req.auth);
 
-    const ownerId = Number(req.params[param]);
-    if (!Number.isSafeInteger(ownerId) || ownerId !== auth.userId) {
-      throw new AuthorizationError();
+      const ownerId = Number(req.params[param]);
+
+      if (!Number.isSafeInteger(ownerId) || ownerId !== auth.userId) {
+        throw new AuthorizationError();
+      }
+
+      next();
+    } catch (error) {
+      next(error);
     }
-    next();
-  } catch (error) {
-    next(error);
-  }
-};
+  };

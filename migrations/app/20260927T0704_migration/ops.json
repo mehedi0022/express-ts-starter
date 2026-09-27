@@ -236,7 +236,7 @@
     "execute": [
       {
         "description": "create table \"user\"",
-        "sql": "CREATE TABLE \"public\".\"user\" (\n  \"createdAt\" timestamptz DEFAULT (now()) NOT NULL,\n  \"email\" text NOT NULL,\n  \"emailVerifiedAt\" timestamptz,\n  \"fullName\" text,\n  \"id\" SERIAL NOT NULL,\n  \"isActive\" bool DEFAULT true NOT NULL,\n  \"password\" text NOT NULL,\n  \"role\" text DEFAULT 'EDITOR' NOT NULL,\n  \"roleId\" int4,\n  \"updatedAt\" timestamptz NOT NULL,\n  \"userName\" text,\n  PRIMARY KEY (\"id\"),\n  CONSTRAINT \"user_role_check_c54f5281\" CHECK (\"role\" IN ('SUPER_ADMIN', 'ADMIN', 'MANAGER', 'EDITOR', 'MODERATOR', 'AUTHOR', 'SELLER', 'CUSTOMER'))\n)",
+        "sql": "CREATE TABLE \"public\".\"user\" (\n  \"createdAt\" timestamptz DEFAULT (now()) NOT NULL,\n  \"email\" text NOT NULL,\n  \"emailVerifiedAt\" timestamptz,\n  \"fullName\" text,\n  \"id\" SERIAL NOT NULL,\n  \"isActive\" bool DEFAULT true NOT NULL,\n  \"password\" text NOT NULL,\n  \"roleId\" int4 NOT NULL,\n  \"updatedAt\" timestamptz NOT NULL,\n  \"userName\" text,\n  PRIMARY KEY (\"id\")\n)",
         "params": []
       }
     ],

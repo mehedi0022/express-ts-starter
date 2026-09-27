@@ -45,43 +45,6 @@
                 "value": "EMAIL_VERIFICATION"
               }
             ]
-          },
-          "UserRole": {
-            "codecId": "pg/text@1",
-            "members": [
-              {
-                "name": "SUPER_ADMIN",
-                "value": "SUPER_ADMIN"
-              },
-              {
-                "name": "ADMIN",
-                "value": "ADMIN"
-              },
-              {
-                "name": "MANAGER",
-                "value": "MANAGER"
-              },
-              {
-                "name": "EDITOR",
-                "value": "EDITOR"
-              },
-              {
-                "name": "MODERATOR",
-                "value": "MODERATOR"
-              },
-              {
-                "name": "AUTHOR",
-                "value": "AUTHOR"
-              },
-              {
-                "name": "SELLER",
-                "value": "SELLER"
-              },
-              {
-                "name": "CUSTOMER",
-                "value": "CUSTOMER"
-              }
-            ]
           }
         },
         "models": {
@@ -671,21 +634,8 @@
                   "kind": "scalar"
                 }
               },
-              "role": {
-                "nullable": false,
-                "type": {
-                  "codecId": "pg/text@1",
-                  "kind": "scalar"
-                },
-                "valueSet": {
-                  "entityKind": "enum",
-                  "entityName": "UserRole",
-                  "namespaceId": "public",
-                  "plane": "domain"
-                }
-              },
               "roleId": {
-                "nullable": true,
+                "nullable": false,
                 "type": {
                   "codecId": "pg/int4@1",
                   "kind": "scalar"
@@ -724,7 +674,7 @@
               },
               "rbacRole": {
                 "cardinality": "N:1",
-                "nullable": true,
+                "nullable": false,
                 "on": {
                   "localFields": [
                     "roleId"
@@ -776,9 +726,6 @@
                 },
                 "password": {
                   "column": "password"
-                },
-                "role": {
-                  "column": "role"
                 },
                 "roleId": {
                   "column": "roleId"
@@ -1294,13 +1241,6 @@
               ]
             },
             "user": {
-              "checks": [
-                {
-                  "expression": "\"role\" IN ('SUPER_ADMIN', 'ADMIN', 'MANAGER', 'EDITOR', 'MODERATOR', 'AUTHOR', 'SELLER', 'CUSTOMER')",
-                  "name": "user_role_check_c54f5281",
-                  "prefix": "user_role_check"
-                }
-              ],
               "columns": {
                 "createdAt": {
                   "codecId": "pg/timestamptz-temporal@1",
@@ -1349,25 +1289,10 @@
                   "nativeType": "text",
                   "nullable": false
                 },
-                "role": {
-                  "codecId": "pg/text@1",
-                  "default": {
-                    "kind": "literal",
-                    "value": "EDITOR"
-                  },
-                  "nativeType": "text",
-                  "nullable": false,
-                  "valueSet": {
-                    "entityKind": "valueSet",
-                    "entityName": "UserRole",
-                    "namespaceId": "public",
-                    "plane": "storage"
-                  }
-                },
                 "roleId": {
                   "codecId": "pg/int4@1",
                   "nativeType": "int4",
-                  "nullable": true
+                  "nullable": false
                 },
                 "updatedAt": {
                   "codecId": "pg/timestamptz-temporal@1",
@@ -1430,19 +1355,6 @@
                 "PASSWORD_RESET",
                 "EMAIL_VERIFICATION"
               ]
-            },
-            "UserRole": {
-              "kind": "valueSet",
-              "values": [
-                "SUPER_ADMIN",
-                "ADMIN",
-                "MANAGER",
-                "EDITOR",
-                "MODERATOR",
-                "AUTHOR",
-                "SELLER",
-                "CUSTOMER"
-              ]
             }
           }
         },
@@ -1450,7 +1362,7 @@
         "kind": "postgres-schema"
       }
     },
-    "storageHash": "e7ed36f65957ff24881fde5de63fe4acf159fefe1b9e0590e947ee4f7edec3ac"
+    "storageHash": "2be1efa77cfc0d227c357ed867fa5ea77691d9e089a2e6feb2d1ded6622a0d92"
   },
   "execution": {
     "executionHash": "cdb16190f87de4bbcd3d02d644609ffe3d3a58008328257f70dd1e268d454ec5",

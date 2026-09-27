@@ -8,14 +8,20 @@ import {
 
 import * as userService from "../services/user.service.js";
 
-import type { UserListQuery } from "../validations/user.validation.js";
-import type { AuthenticatedRequest } from "../../../middlewares/auth.middleware.js";
+import type { UserListQuery } from "../user.types.js";
+import type {
+  AuthenticatedRequest,
+  AuthenticatedUser,
+} from "../../../middlewares/auth.middleware.js";
+
+const getAuth = (req: Request): AuthenticatedUser =>
+  (req as AuthenticatedRequest).auth;
 
 /**
  * Get current authenticated user
  */
 export const getMe = asyncHandler(async (req: Request, res: Response) => {
-  const { userId } = (req as AuthenticatedRequest).auth;
+  const { userId } = getAuth(req);
 
   const user = await userService.getCurrentUser(userId);
 
@@ -28,7 +34,9 @@ export const getMe = asyncHandler(async (req: Request, res: Response) => {
  * Create user
  */
 export const createUser = asyncHandler(async (req: Request, res: Response) => {
-  const user = await userService.createUser(req.auth!.role, req.body);
+  const actor = getAuth(req);
+
+  const user = await userService.createUser(actor, req.body);
 
   res.status(201).json(successResponse("User created successfully", user));
 });
@@ -65,8 +73,10 @@ export const getUserById = asyncHandler(async (req: Request, res: Response) => {
  * Update user
  */
 export const updateUser = asyncHandler(async (req: Request, res: Response) => {
+  const actor = getAuth(req);
+
   const user = await userService.updateUser(
-    req.auth!,
+    actor,
     Number(req.params.id),
     req.body,
   );
@@ -74,10 +84,15 @@ export const updateUser = asyncHandler(async (req: Request, res: Response) => {
   res.status(200).json(successResponse("User updated successfully", user));
 });
 
+/**
+ * Change user role
+ */
 export const changeUserRole = asyncHandler(
   async (req: Request, res: Response) => {
+    const actor = getAuth(req);
+
     const user = await userService.changeUserRole(
-      req.auth!,
+      actor,
       Number(req.params.id),
       req.body.roleId,
     );
@@ -88,10 +103,15 @@ export const changeUserRole = asyncHandler(
   },
 );
 
+/**
+ * Change user status
+ */
 export const changeUserStatus = asyncHandler(
   async (req: Request, res: Response) => {
+    const actor = getAuth(req);
+
     const user = await userService.changeUserStatus(
-      req.auth!,
+      actor,
       Number(req.params.id),
       req.body.isActive,
     );
@@ -102,10 +122,15 @@ export const changeUserStatus = asyncHandler(
   },
 );
 
+/**
+ * Reset user password
+ */
 export const resetUserPassword = asyncHandler(
   async (req: Request, res: Response) => {
+    const actor = getAuth(req);
+
     await userService.resetUserPassword(
-      req.auth!,
+      actor,
       Number(req.params.id),
       req.body.newPassword,
     );

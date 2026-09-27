@@ -4,12 +4,12 @@ import { AuthenticationError } from "../errors/AppError.js";
 import { verifyAccessToken } from "../utils/jwt.util.js";
 import { accessTokenCookieName } from "../utils/cookie.util.js";
 import { findAuthorizationUserById } from "../modules/user/repositories/user.repository.js";
-import type { UserRole } from "../auth/roles.js";
 
 export type AuthenticatedUser = {
   userId: number;
-  // Kept during the legacy-role transition for hierarchy checks.
-  role: UserRole;
+  roleId: number;
+  roleKey: string;
+  roleRank: number;
   permissions: readonly string[];
 };
 
@@ -39,7 +39,9 @@ export const authenticate: RequestHandler = async (req, _res, next) => {
 
     req.auth = {
       userId: user.id,
-      role: user.role,
+      roleId: user.rbacRole.id,
+      roleKey: user.rbacRole.key,
+      roleRank: user.rbacRole.rank,
       permissions: user.rbacRole.rolePermissions.flatMap(({ permission }) => permission ? [permission.key] : []),
     };
     next();
