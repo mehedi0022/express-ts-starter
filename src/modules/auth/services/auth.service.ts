@@ -14,6 +14,8 @@ import { randomUUID } from "node:crypto";
 import { config } from "../../../config/env.js";
 import { generateSecureToken, hashToken } from "../../../utils/token.util.js";
 import { emailService } from "../../email/email.service.js";
+import { createEmailVerifiedEmail } from "../../email/templates/email-verified.template.js";
+import { createPasswordChangedEmail } from "../../email/templates/password-changed.template.js";
 import { createPasswordResetEmail } from "../../email/templates/password-reset.template.js";
 import { createVerificationEmail } from "../../email/templates/verification.template.js";
 import * as accountTokenRepository from "../repositories/account-token.repository.js";
@@ -31,6 +33,19 @@ import type {
 
 const accountTokenUrl = (path: string, token: string) =>
   `${config.email.appUrl!.replace(/\/$/, "")}${path}?token=${encodeURIComponent(token)}`;
+
+const sendAuthEmail = (
+  to: string,
+  template: Parameters<typeof emailService.sendEmail>[0] extends infer Message
+    ? Omit<Message & object, "to">
+    : never,
+) => {
+  if (!config.smtp.enabled) return;
+
+  // The email service records delivery failures; consume the rejection so a
+  // background notification cannot become an unhandled promise rejection.
+  void emailService.sendEmail({ to, ...template }).catch(() => undefined);
+};
 
 const issueAccountToken = async (
   user: { id: number; email: string; fullName: string | null },
@@ -61,7 +76,7 @@ const issueAccountToken = async (
           verificationUrl: accountTokenUrl("/verify-email", token),
           recipientName: user.fullName ?? undefined,
         });
-  await emailService.sendEmail({ to: user.email, ...template });
+  sendAuthEmail(user.email, template);
 };
 
 export const login = async (data: LoginInput) => {
@@ -195,6 +210,14 @@ export const resetPassword = async (data: ResetPasswordInput) => {
     now: Temporal.Now.instant(),
   });
   if (!userId) throw new AuthenticationError("Invalid or expired reset token");
+
+  const user = await userRepository.findUserById(userId);
+  if (user) {
+    sendAuthEmail(user.email, createPasswordChangedEmail({
+      appUrl: config.email.appUrl!,
+      recipientName: user.fullName ?? undefined,
+    }));
+  }
 };
 
 export const changePassword = async (
@@ -215,6 +238,11 @@ export const changePassword = async (
     passwordHash: await hashPassword(data.newPassword),
     now: Temporal.Now.instant(),
   });
+
+  sendAuthEmail(user.email, createPasswordChangedEmail({
+    appUrl: config.email.appUrl!,
+    recipientName: user.fullName ?? undefined,
+  }));
 };
 
 export const resendVerification = async (email: string) => {
@@ -230,4 +258,12 @@ export const verifyEmail = async (token: string) => {
   });
   if (!userId)
     throw new AuthenticationError("Invalid or expired verification token");
+
+  const user = await userRepository.findUserById(userId);
+  if (user) {
+    sendAuthEmail(user.email, createEmailVerifiedEmail({
+      appUrl: config.email.appUrl!,
+      recipientName: user.fullName ?? undefined,
+    }));
+  }
 };

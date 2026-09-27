@@ -7,12 +7,17 @@ import {
   NotFoundError,
 } from "../../../errors/AppError.js";
 
-import type { UserListQuery } from "../user.types.js";
+import type { RegisterUserInput, UserListQuery } from "../user.types.js";
 
 import { hashPassword } from "../../../utils/password.util.js";
 import { Temporal } from "temporal-polyfill";
+import { config } from "../../../config/env.js";
+import { logger } from "../../../config/logger.js";
+import { emailService } from "../../email/email.service.js";
+import { createWelcomeEmail } from "../../email/templates/welcome.template.js";
 
 const SUPER_ADMIN_ROLE_KEY = "SUPER_ADMIN";
+const DEFAULT_REGISTRATION_ROLE_KEY = "CUSTOMER";
 
 type ActorContext = {
   userId: number;
@@ -76,6 +81,52 @@ export const createUser = async (
     password: await hashPassword(data.password),
     roleId: role.id,
   });
+};
+
+export const registerUser = async (data: RegisterUserInput) => {
+  const email = data.email.trim().toLowerCase();
+  const role = await userRepository.findRoleByKey(
+    DEFAULT_REGISTRATION_ROLE_KEY,
+  );
+
+  if (!role) {
+    throw new NotFoundError("Default registration role not found");
+  }
+
+  console.log(config.smtp.enabled);
+
+  const existingUser = await userRepository.findUserIdByEmail(email);
+
+  if (existingUser) {
+    throw new ConflictError("A user with this email already exists");
+  }
+
+  const user = await userRepository.createUser({
+    userName: data.userName,
+    fullName: data.fullName,
+    email,
+    password: await hashPassword(data.password),
+    roleId: role.id,
+  });
+
+  if (config.smtp.enabled) {
+    void emailService
+      .sendEmail({
+        to: user.email,
+        ...createWelcomeEmail({
+          appUrl: config.email.appUrl!,
+          recipientName: user.fullName ?? undefined,
+        }),
+      })
+      .catch((error: unknown) => {
+        logger.error(
+          { errorName: error instanceof Error ? error.name : "UnknownError", userId: user.id },
+          "Welcome email delivery failed",
+        );
+      });
+  }
+
+  return user;
 };
 
 export const getCurrentUser = async (id: number) => {

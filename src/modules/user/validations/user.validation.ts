@@ -35,6 +35,27 @@ export const createUserSchema = z.object({
     .strict(),
 });
 
+export const registerUserSchema = z.object({
+  body: z
+    .object({
+      userName: z.string().min(3, "Username must be at least 3 characters").optional(),
+      fullName: z.string("Full name is required").min(4, "Full name must be at least 4 characters"),
+      email: z
+        .string("Email is required")
+        .trim()
+        .toLowerCase()
+        .pipe(z.email("Invalid email address")),
+      password: z
+        .string("Password is required")
+        .min(8, "Password must be at least 8 characters")
+        .regex(/[A-Z]/, "Must contain at least one uppercase letter")
+        .regex(/[a-z]/, "Must contain at least one lowercase letter")
+        .regex(/[0-9]/, "Must contain at least one number")
+        .regex(/[^A-Za-z0-9]/, "Must contain at least one special character"),
+    })
+    .strict(),
+});
+
 const userIdParams = z.object({
   id: z.coerce.number().int().positive(),
 });

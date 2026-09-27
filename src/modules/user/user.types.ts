@@ -4,12 +4,15 @@ import {
   changeUserRoleSchema,
   changeUserStatusSchema,
   createUserSchema,
+  registerUserSchema,
   resetUserPasswordSchema,
   updateUserSchema,
   userListQuerySchema,
 } from "./validations/user.validation.js";
 
 export type CreateUserInput = z.infer<typeof createUserSchema>["body"];
+
+export type RegisterUserInput = z.infer<typeof registerUserSchema>["body"];
 
 export type UpdateUserInput = z.infer<typeof updateUserSchema>["body"];
 

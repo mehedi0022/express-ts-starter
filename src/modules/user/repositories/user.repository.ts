@@ -9,7 +9,7 @@ import { Temporal } from "temporal-polyfill";
 import { or } from "@prisma/orm-postgres/orm-client";
 
 type CreateUserData = {
-  userName: string;
+  userName?: string;
   fullName: string;
   email: string;
   password: string;
@@ -19,6 +19,11 @@ type CreateUserData = {
 export const findRoleById = (id: number) =>
   db.orm.public.Role.select("id", "key", "name", "rank", "isSystem").first({
     id,
+  });
+
+export const findRoleByKey = (key: string) =>
+  db.orm.public.Role.select("id", "key", "name", "rank", "isSystem").first({
+    key,
   });
 
 export const findUserIdByEmail = (email: string) =>

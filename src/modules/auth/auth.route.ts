@@ -21,6 +21,7 @@ import {
   logoutAll,
   refreshToken,
 } from "./controllers/auth.controller.js";
+import { registerUser } from "../user/controllers/user.controller.js";
 
 import {
   changePasswordSchema,
@@ -29,12 +30,14 @@ import {
   resetPasswordSchema,
   verifyEmailSchema,
 } from "./validations/auth.validation.js";
+import { registerUserSchema } from "../user/validations/user.validation.js";
 
 const router = Router();
 
 router.use(protectCookieAuthFromCsrf);
 
 router.post("/login", loginRateLimit, validate(loginSchema), login);
+router.post("/register", registerRateLimit, validate(registerUserSchema), registerUser);
 
 router.post("/refresh", refreshRateLimit, refreshToken);
 router.post(

@@ -278,10 +278,10 @@ describe("user API security boundary", () => {
     expect(response.status).toBe(400);
   });
 
-  it("does not expose a public registration endpoint", async () => {
+  it("validates public registration input", async () => {
     const response = await request(app).post("/api/v1/auth/register").send({});
 
-    expect(response.status).toBe(404);
+    expect(response.status).toBe(400);
   });
 
   it("never exposes password fields in login responses", async () => {

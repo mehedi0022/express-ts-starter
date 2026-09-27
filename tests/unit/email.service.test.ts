@@ -5,6 +5,9 @@ import { EmailDeliveryError } from "../../src/errors/AppError.js";
 import { createEmailService, type EmailTransport } from "../../src/modules/email/email.service.js";
 import { createPasswordResetEmail } from "../../src/modules/email/templates/password-reset.template.js";
 import { createVerificationEmail } from "../../src/modules/email/templates/verification.template.js";
+import { createWelcomeEmail } from "../../src/modules/email/templates/welcome.template.js";
+import { createPasswordChangedEmail } from "../../src/modules/email/templates/password-changed.template.js";
+import { createEmailVerifiedEmail } from "../../src/modules/email/templates/email-verified.template.js";
 
 const baseEnvironment = {
   NODE_ENV: "test",
@@ -72,7 +75,7 @@ describe("optional email service", () => {
     expect(JSON.stringify(serviceLogger.error.mock.calls)).not.toContain("smtp-password");
   });
 
-  it("provides generic, customizable verification and reset templates", () => {
+  it("provides generic, customizable account email templates", () => {
     const brand = loadConfig({
       ...baseEnvironment,
       EMAIL_BRAND_NAME: "Acme",
@@ -90,6 +93,21 @@ describe("optional email service", () => {
       resetUrl: "https://app.example.com/reset?token=example",
       brand,
     });
+    const welcome = createWelcomeEmail({
+      appUrl: "https://app.example.com",
+      recipientName: "Taylor",
+      brand,
+    });
+    const passwordChanged = createPasswordChangedEmail({
+      appUrl: "https://app.example.com",
+      recipientName: "Taylor",
+      brand,
+    });
+    const emailVerified = createEmailVerifiedEmail({
+      appUrl: "https://app.example.com",
+      recipientName: "Taylor",
+      brand,
+    });
 
     expect(verification.subject).toBe("Verify your email address");
     expect(verification.text).toContain("Taylor");
@@ -100,6 +118,13 @@ describe("optional email service", () => {
     expect(verification.html).toContain("@media only screen and (max-width:620px)");
     expect(reset.subject).toBe("Reset your password");
     expect(reset.html).toContain("Reset password");
+    expect(welcome.subject).toBe("Welcome! Your account is ready");
+    expect(welcome.text).toContain("Taylor");
+    expect(welcome.html).toContain("Open the app");
+    expect(welcome.html).toContain("Account ready");
+    expect(welcome.html).toContain("linear-gradient");
+    expect(passwordChanged.html).toContain("Password changed");
+    expect(emailVerified.html).toContain("Email verified");
   });
 
   it("uses a safe branded monogram when no logo URL is configured", () => {

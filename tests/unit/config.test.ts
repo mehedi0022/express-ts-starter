@@ -14,6 +14,20 @@ describe("application configuration", () => {
     expect(config.smtp.enabled).toBe(false);
     expect(config.cloudinary.enabled).toBe(false);
     expect(config.database.migrationUrl).toBe(config.database.runtimeUrl);
+    expect(config.swagger.enabled).toBe(true);
+  });
+
+  it("enables Swagger explicitly in production only", () => {
+    const productionBase = {
+      ...validEnvironment,
+      NODE_ENV: "production",
+      DATABASE_TLS_MODE: "verify-full",
+      COOKIE_SECURE: "true",
+    };
+
+    expect(loadConfig(productionBase).swagger.enabled).toBe(false);
+    expect(loadConfig({ ...productionBase, SWAGGER_ENABLED: "true" }).swagger.enabled)
+      .toBe(true);
   });
 
   it("requires SMTP credentials only when email is enabled", () => {

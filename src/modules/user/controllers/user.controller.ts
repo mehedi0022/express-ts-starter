@@ -42,6 +42,17 @@ export const createUser = asyncHandler(async (req: Request, res: Response) => {
 });
 
 /**
+ * Register User
+ */
+export const registerUser = asyncHandler(
+  async (req: Request, res: Response) => {
+    const user = await userService.registerUser(req.body);
+
+    res.status(201).json(successResponse("Registration successful", user));
+  },
+);
+
+/**
  * Get all users
  */
 export const getAllUsers = asyncHandler(async (req: Request, res: Response) => {

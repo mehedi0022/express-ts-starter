@@ -9,23 +9,26 @@ export type BrandedEmailContent = {
   paragraphs: string[];
   action: { label: string; url: string };
   securityNote?: string;
+  variant?: "default" | "welcome";
   brand?: EmailBrand;
 };
 
-export const escapeHtml = (value: string) => value
-  .replaceAll("&", "&amp;")
-  .replaceAll("<", "&lt;")
-  .replaceAll(">", "&gt;")
-  .replaceAll('"', "&quot;")
-  .replaceAll("'", "&#039;");
+export const escapeHtml = (value: string) =>
+  value
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
 
-const initials = (brandName: string) => brandName
-  .split(/\s+/)
-  .filter(Boolean)
-  .slice(0, 2)
-  .map((part) => part[0])
-  .join("")
-  .toUpperCase();
+const initials = (brandName: string) =>
+  brandName
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0])
+    .join("")
+    .toUpperCase();
 
 const safeHttpUrl = (value: string) => {
   const url = new URL(value);
@@ -35,15 +38,18 @@ const safeHttpUrl = (value: string) => {
   return url.toString();
 };
 
-const brandMark = (brand: EmailBrand) => brand.logoUrl
-  ? `<img src="${escapeHtml(safeHttpUrl(brand.logoUrl))}" width="42" height="42" alt="${escapeHtml(brand.brandName)}" style="display:block;border:0;border-radius:10px;outline:none;text-decoration:none;object-fit:contain;">`
-  : `<table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr><td align="center" valign="middle" width="42" height="42" style="width:42px;height:42px;background:${brand.primaryColor};border-radius:10px;color:#ffffff;font-family:Arial,sans-serif;font-size:16px;font-weight:700;letter-spacing:0.5px;">${escapeHtml(initials(brand.brandName))}</td></tr></table>`;
+const brandMark = (brand: EmailBrand) =>
+  brand.logoUrl
+    ? `<img src="${escapeHtml(safeHttpUrl(brand.logoUrl))}" width="42" height="42" alt="${escapeHtml(brand.brandName)}" style="display:block;border:0;border-radius:10px;outline:none;text-decoration:none;object-fit:contain;">`
+    : `<table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr><td align="center" valign="middle" width="42" height="42" style="width:42px;height:42px;background:${brand.primaryColor};border-radius:10px;color:#ffffff;font-family:Arial,sans-serif;font-size:16px;font-weight:700;letter-spacing:0.5px;">${escapeHtml(initials(brand.brandName))}</td></tr></table>`;
 
 const footer = (brand: EmailBrand) => {
   const support = brand.supportEmail
     ? `Need help? <a href="mailto:${escapeHtml(brand.supportEmail)}" style="color:#64748b;text-decoration:underline;">${escapeHtml(brand.supportEmail)}</a>`
     : "This is an automated message; please do not reply directly.";
-  const footerText = brand.footerText ? `<br>${escapeHtml(brand.footerText)}` : "";
+  const footerText = brand.footerText
+    ? `<br>${escapeHtml(brand.footerText)}`
+    : "";
   return `<tr><td align="center" style="padding:24px 28px 8px;color:#64748b;font-family:Arial,sans-serif;font-size:12px;line-height:20px;">${support}${footerText}<br><span style="color:#94a3b8;">© ${new Date().getFullYear()} ${escapeHtml(brand.brandName)}</span></td></tr>`;
 };
 
@@ -54,15 +60,29 @@ export const renderBrandedEmail = ({
   paragraphs,
   action,
   securityNote,
+  variant = "default",
   brand = config.email,
 }: BrandedEmailContent) => {
   const actionUrl = safeHttpUrl(action.url);
-  const intro = paragraphs.map((paragraph) =>
-    `<p style="margin:0 0 16px;color:#334155;font-family:Arial,sans-serif;font-size:16px;line-height:25px;">${escapeHtml(paragraph)}</p>`,
-  ).join("");
+  const intro = paragraphs
+    .map(
+      (paragraph) =>
+        `<p style="margin:0 0 16px;color:#334155;font-family:Arial,sans-serif;font-size:16px;line-height:25px;">${escapeHtml(paragraph)}</p>`,
+    )
+    .join("");
   const note = securityNote
     ? `<tr><td style="padding:0 28px 24px;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;"><tr><td style="padding:14px 16px;color:#64748b;font-family:Arial,sans-serif;font-size:13px;line-height:20px;">${escapeHtml(securityNote)}</td></tr></table></td></tr>`
     : "";
+  const isWelcome = variant === "welcome";
+  const hero = isWelcome
+    ? `<tr><td class="email-padding" style="padding:38px 38px 34px;background:${brand.primaryColor};background:linear-gradient(135deg,${brand.primaryColor} 0%,#172554 100%);"><table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr><td align="center" width="42" height="42" style="width:42px;height:42px;border-radius:21px;background:rgba(255,255,255,0.18);color:#ffffff;font-family:Arial,sans-serif;font-size:22px;font-weight:700;">✓</td><td style="padding-left:12px;color:#dbeafe;font-family:Arial,sans-serif;font-size:12px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;">Account ready</td></tr></table><h1 style="margin:24px 0 0;color:#ffffff;font-family:Arial,sans-serif;font-size:32px;line-height:40px;letter-spacing:-0.7px;">${escapeHtml(title)}</h1><p style="margin:10px 0 0;color:#dbeafe;font-family:Arial,sans-serif;font-size:16px;line-height:25px;">Everything is set up. Let’s get started.</p></td></tr>`
+    : "";
+  const heading = isWelcome
+    ? ""
+    : `<h1 style="margin:0 0 18px;color:#0f172a;font-family:Arial,sans-serif;font-size:26px;line-height:34px;letter-spacing:-0.3px;">${escapeHtml(title)}</h1>`;
+  const buttonStyle = isWelcome
+    ? `background:${brand.primaryColor};border-radius:10px;box-shadow:0 8px 16px rgba(37,99,235,0.22);`
+    : `background:${brand.primaryColor};border-radius:8px;`;
 
   return `<!doctype html>
 <html lang="en" xmlns="http://www.w3.org/1999/xhtml">
@@ -81,9 +101,9 @@ export const renderBrandedEmail = ({
     <table role="presentation" class="email-shell" width="600" cellpadding="0" cellspacing="0" border="0" style="width:600px;max-width:600px;">
       <tr><td style="padding:0 16px 18px;"><table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr><td style="padding-right:12px;vertical-align:middle;">${brandMark(brand)}</td><td style="vertical-align:middle;color:#0f172a;font-family:Arial,sans-serif;font-size:18px;font-weight:700;">${escapeHtml(brand.brandName)}</td></tr></table></td></tr>
       <tr><td class="email-card" style="background:#ffffff;border-radius:16px;box-shadow:0 4px 16px rgba(15,23,42,0.08);overflow:hidden;">
-        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr><td style="height:5px;background:${brand.primaryColor};font-size:0;line-height:0;">&nbsp;</td></tr>
-          <tr><td class="email-padding" style="padding:34px 38px 10px;"><h1 style="margin:0 0 18px;color:#0f172a;font-family:Arial,sans-serif;font-size:26px;line-height:34px;letter-spacing:-0.3px;">${escapeHtml(title)}</h1><p style="margin:0 0 16px;color:#334155;font-family:Arial,sans-serif;font-size:16px;line-height:25px;">${escapeHtml(greeting)}</p>${intro}</td></tr>
-          <tr><td class="email-padding" style="padding:12px 38px 32px;"><a class="email-button" href="${escapeHtml(actionUrl)}" style="display:inline-block;background:${brand.primaryColor};border-radius:8px;color:#ffffff;font-family:Arial,sans-serif;font-size:15px;font-weight:700;line-height:20px;padding:14px 22px;text-decoration:none;">${escapeHtml(action.label)}</a></td></tr>
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr><td style="height:5px;background:${brand.primaryColor};font-size:0;line-height:0;">&nbsp;</td></tr>${hero}
+          <tr><td class="email-padding" style="padding:${isWelcome ? "30px 38px 10px" : "34px 38px 10px"};">${heading}<p style="margin:0 0 16px;color:#334155;font-family:Arial,sans-serif;font-size:16px;line-height:25px;">${escapeHtml(greeting)}</p>${intro}</td></tr>
+          <tr><td class="email-padding" style="padding:12px 38px 32px;"><a class="email-button" href="${escapeHtml(actionUrl)}" style="display:inline-block;${buttonStyle}color:#ffffff;font-family:Arial,sans-serif;font-size:15px;font-weight:700;line-height:20px;padding:15px 24px;text-decoration:none;">${escapeHtml(action.label)}${isWelcome ? " &rarr;" : ""}</a></td></tr>
           ${note}
         </table>
       </td></tr>
