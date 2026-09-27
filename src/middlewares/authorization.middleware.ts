@@ -1,6 +1,6 @@
 import type { RequestHandler } from "express";
 
-import { roleHasPermission, type Permission } from "../auth/authorization.js";
+import type { Permission } from "../auth/authorization.js";
 import { AuthenticationError, AuthorizationError } from "../errors/AppError.js";
 import type { UserRole } from "../auth/roles.js";
 
@@ -24,7 +24,7 @@ export const requirePermission = (permission: Permission): RequestHandler =>
   (req, _res, next) => {
     try {
       const auth = getAuth(req.auth);
-      if (!roleHasPermission(auth.role, permission)) throw new AuthorizationError();
+      if (!auth.permissions.includes(permission)) throw new AuthorizationError();
       next();
     } catch (error) {
       next(error);

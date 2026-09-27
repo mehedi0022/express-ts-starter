@@ -2,52 +2,115 @@ import { db } from "../../../prisma/db.js";
 import { toPublicUserDto } from "../user.dto.js";
 import type { UserListQuery } from "../validations/user.validation.js";
 import { pageOffset, paginationMeta } from "../../../utils/pagination.js";
+import type { UserRole } from "../../../auth/roles.js";
+import { Temporal } from "temporal-polyfill";
+import { or } from "@prisma/orm-postgres/orm-client";
 
 type CreateUserData = {
   userName: string;
   fullName: string;
   email: string;
   password: string;
+  role: UserRole;
+  roleId: number;
 };
+
+export const findRoleById = (id: number) =>
+  db.orm.public.Role.select("id", "key").first({ id });
+
+export const findUserIdByEmail = (email: string) =>
+  db.orm.public.User.select("id").first({ email });
 
 export const findUserByEmail = async (email: string) => {
-  return db.orm.public.User
-    .select(
-      "id",
-      "email",
-      "userName",
-      "fullName",
-      "password",
-      "role",
-      "emailVerifiedAt",
-      "createdAt",
-      "updatedAt",
-    )
-    .first({ email });
+  return db.orm.public.User.select(
+    "id",
+    "email",
+    "userName",
+    "fullName",
+    "password",
+    "role",
+    "isActive",
+    "emailVerifiedAt",
+    "createdAt",
+    "updatedAt",
+  ).first({ email });
 };
 
-export const findAllUsers = async ({ page, limit, role, sortBy, sortOrder }: UserListQuery) => {
-  const selectedUsers = db.orm.public.User
-    .select("id", "email", "userName", "fullName", "role", "emailVerifiedAt", "createdAt", "updatedAt");
-  const filteredUsers = role ? selectedUsers.where({ role }) : selectedUsers;
+export const findAllUsers = async ({
+  page,
+  limit,
+  role,
+  status,
+  search,
+  sortBy,
+  sortOrder,
+}: UserListQuery) => {
+  const selectedUsers = db.orm.public.User.select(
+    "id",
+    "email",
+    "userName",
+    "fullName",
+    "role",
+    "isActive",
+    "emailVerifiedAt",
+    "createdAt",
+    "updatedAt",
+  );
+  let filteredUsers = selectedUsers;
+
+  if (role) {
+    filteredUsers = filteredUsers.where({ role });
+  }
+
+  if (status) {
+    filteredUsers = filteredUsers.where({ isActive: status === "ACTIVE" });
+  }
+
+  if (search) {
+    const term = `%${search}%`;
+    filteredUsers = filteredUsers.where((user) =>
+      or(
+        user.fullName.ilike(term),
+        user.userName.ilike(term),
+        user.email.ilike(term),
+      ),
+    );
+  }
+
   const offset = pageOffset(page, limit);
   const usersQuery = (() => {
     switch (sortBy) {
       case "id":
-        return filteredUsers.orderBy((user) => sortOrder === "asc" ? user.id.asc() : user.id.desc());
+        return filteredUsers.orderBy((user) =>
+          sortOrder === "asc" ? user.id.asc() : user.id.desc(),
+        );
       case "email":
         return filteredUsers.orderBy([
-          (user) => sortOrder === "asc" ? user.email.asc() : user.email.desc(),
+          (user) =>
+            sortOrder === "asc" ? user.email.asc() : user.email.desc(),
           (user) => user.id.asc(),
         ]);
       case "userName":
         return filteredUsers.orderBy([
-          (user) => sortOrder === "asc" ? user.userName.asc() : user.userName.desc(),
+          (user) =>
+            sortOrder === "asc" ? user.userName.asc() : user.userName.desc(),
+          (user) => user.id.asc(),
+        ]);
+      case "fullName":
+        return filteredUsers.orderBy([
+          (user) =>
+            sortOrder === "asc" ? user.fullName.asc() : user.fullName.desc(),
+          (user) => user.id.asc(),
+        ]);
+      case "role":
+        return filteredUsers.orderBy([
+          (user) => (sortOrder === "asc" ? user.role.asc() : user.role.desc()),
           (user) => user.id.asc(),
         ]);
       case "createdAt":
         return filteredUsers.orderBy([
-          (user) => sortOrder === "asc" ? user.createdAt.asc() : user.createdAt.desc(),
+          (user) =>
+            sortOrder === "asc" ? user.createdAt.asc() : user.createdAt.desc(),
           (user) => user.id.desc(),
         ]);
     }
@@ -64,25 +127,63 @@ export const findAllUsers = async ({ page, limit, role, sortBy, sortOrder }: Use
 };
 
 export const createUser = async (data: CreateUserData) => {
-  const user = await db.orm.public.User
-    .select("id", "email", "userName", "fullName", "role", "emailVerifiedAt", "createdAt", "updatedAt")
-    .create({
-      userName: data.userName,
-      fullName: data.fullName,
-      email: data.email,
-      password: data.password,
-    });
+  const roleId = await findRoleIdByKey(data.role);
+  const user = await db.orm.public.User.select(
+    "id",
+    "email",
+    "userName",
+    "fullName",
+    "role",
+    "isActive",
+    "emailVerifiedAt",
+    "createdAt",
+    "updatedAt",
+  ).create({
+    userName: data.userName,
+    fullName: data.fullName,
+    email: data.email,
+    password: data.password,
+    role: data.role,
+    roleId: data.roleId,
+  });
 
   return toPublicUserDto(user);
 };
 
 export const findAuthorizationUserById = (id: number) =>
-  db.orm.public.User.select("id", "role").first({ id });
+  db.orm.public.User.select("id", "role", "isActive")
+    .include("rbacRole", (role) =>
+      role.select("key").include("rolePermissions", (rolePermission) =>
+        rolePermission.include("permission", (permission) => permission.select("key")),
+      ),
+    )
+    .first({ id });
+
+export const getPermissionKeysForUserId = async (id: number) => {
+  const user = await findAuthorizationUserById(id);
+  return user?.rbacRole?.rolePermissions.flatMap(({ permission }) =>
+    permission ? [permission.key] : [],
+  ) ?? [];
+};
+
+const findRoleIdByKey = async (key: UserRole) => {
+  const role = await db.orm.public.Role.select("id").first({ key });
+  if (!role) throw new Error(`RBAC role is not seeded: ${key}`);
+  return role.id;
+};
 
 export const findUserById = async (id: number) => {
-  const user = await db.orm.public.User
-    .select("id", "email", "userName", "fullName", "role", "emailVerifiedAt", "createdAt", "updatedAt")
-    .first({ id });
+  const user = await db.orm.public.User.select(
+    "id",
+    "email",
+    "userName",
+    "fullName",
+    "role",
+    "isActive",
+    "emailVerifiedAt",
+    "createdAt",
+    "updatedAt",
+  ).first({ id });
   return user ? toPublicUserDto(user) : null;
 };
 
@@ -90,20 +191,80 @@ export const updateUserById = async (
   id: number,
   data: { userName?: string | null; fullName?: string | null },
 ) => {
-  const user = await db.orm.public.User
-    .where({ id })
-    .select("id", "email", "userName", "fullName", "role", "emailVerifiedAt", "createdAt", "updatedAt")
+  const user = await db.orm.public.User.where({ id })
+    .select(
+      "id",
+      "email",
+      "userName",
+      "fullName",
+      "role",
+      "isActive",
+      "emailVerifiedAt",
+      "createdAt",
+      "updatedAt",
+    )
     .update(data);
   return user ? toPublicUserDto(user) : null;
 };
 
-export const updatePasswordById = async (id: number, password: string) =>
-  db.orm.public.User.where({ id }).select("id").update({ password });
+export const countActiveSuperAdmins = async () => {
+  const result = await db.orm.public.User.where({
+    role: "SUPER_ADMIN",
+    isActive: true,
+  }).aggregate((aggregate) => ({ count: aggregate.count() }));
+  return result.count;
+};
 
-export const deleteUserById = async (id: number) => {
-  const user = await db.orm.public.User
-    .where({ id })
-    .select("id", "email", "userName", "fullName", "role", "emailVerifiedAt", "createdAt", "updatedAt")
-    .delete();
+export const updateUserRoleById = async (id: number, roleId: number) => {
+  const role = await findRoleById(roleId);
+  if (!role) return null;
+  const user = await db.orm.public.User.where({ id })
+    .select(
+      "id",
+      "email",
+      "userName",
+      "fullName",
+      "role",
+      "isActive",
+      "emailVerifiedAt",
+      "createdAt",
+      "updatedAt",
+    )
+    .update({ role: role.key as UserRole, roleId });
   return user ? toPublicUserDto(user) : null;
 };
+
+export const updateUserStatusAndRevokeSessions = async (
+  id: number,
+  isActive: boolean,
+) =>
+  db.transaction(async (tx) => {
+    const user = await tx.orm.public.User.where({ id })
+      .select(
+        "id",
+        "email",
+        "userName",
+        "fullName",
+        "role",
+        "isActive",
+        "emailVerifiedAt",
+        "createdAt",
+        "updatedAt",
+      )
+      .update({ isActive });
+
+    if (!user) return null;
+
+    if (!isActive) {
+      const revokedAt = Temporal.Now.instant();
+      while (
+        await tx.orm.public.Session.where({ userId: id, revokedAt: null })
+          .select("id")
+          .update({ revokedAt })
+      ) {
+        // The ORM updates one row at a time; exhaust every active session.
+      }
+    }
+
+    return toPublicUserDto(user);
+  });

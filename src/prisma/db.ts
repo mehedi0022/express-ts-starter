@@ -6,8 +6,7 @@ import type { Contract } from "./contract.d";
 import contractJson from "./contract.json" with { type: "json" };
 import { config } from "../config/env.js";
 
-// Prisma's temporal mutation defaults resolve through globalThis.Temporal.
-// Node 24 does not provide it natively yet, so install the project's polyfill.
+
 const runtimeGlobals = globalThis as typeof globalThis & {
   Temporal?: typeof Temporal;
 };

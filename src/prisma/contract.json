@@ -8,6 +8,18 @@
       "model": "AccountToken",
       "namespace": "public"
     },
+    "permission": {
+      "model": "Permission",
+      "namespace": "public"
+    },
+    "role": {
+      "model": "Role",
+      "namespace": "public"
+    },
+    "rolePermission": {
+      "model": "RolePermission",
+      "namespace": "public"
+    },
     "session": {
       "model": "Session",
       "namespace": "public"
@@ -46,12 +58,12 @@
                 "value": "ADMIN"
               },
               {
-                "name": "USER",
-                "value": "USER"
+                "name": "MANAGER",
+                "value": "MANAGER"
               },
               {
-                "name": "CUSTOMER",
-                "value": "CUSTOMER"
+                "name": "EDITOR",
+                "value": "EDITOR"
               },
               {
                 "name": "MODERATOR",
@@ -62,8 +74,12 @@
                 "value": "AUTHOR"
               },
               {
-                "name": "MANAGER",
-                "value": "MANAGER"
+                "name": "SELLER",
+                "value": "SELLER"
+              },
+              {
+                "name": "CUSTOMER",
+                "value": "CUSTOMER"
               }
             ]
           }
@@ -130,6 +146,7 @@
             "relations": {
               "user": {
                 "cardinality": "N:1",
+                "nullable": false,
                 "on": {
                   "localFields": [
                     "userId"
@@ -170,6 +187,289 @@
               },
               "namespaceId": "public",
               "table": "accountToken"
+            }
+          },
+          "Permission": {
+            "fields": {
+              "action": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                }
+              },
+              "createdAt": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/timestamptz-temporal@1",
+                  "kind": "scalar"
+                }
+              },
+              "description": {
+                "nullable": true,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                }
+              },
+              "id": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/int4@1",
+                  "kind": "scalar"
+                }
+              },
+              "key": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                }
+              },
+              "module": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                }
+              },
+              "updatedAt": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/timestamptz-temporal@1",
+                  "kind": "scalar"
+                }
+              }
+            },
+            "relations": {
+              "rolePermissions": {
+                "cardinality": "1:N",
+                "on": {
+                  "localFields": [
+                    "id"
+                  ],
+                  "targetFields": [
+                    "permissionId"
+                  ]
+                },
+                "to": {
+                  "model": "RolePermission",
+                  "namespace": "public"
+                }
+              }
+            },
+            "storage": {
+              "fields": {
+                "action": {
+                  "column": "action"
+                },
+                "createdAt": {
+                  "column": "createdAt"
+                },
+                "description": {
+                  "column": "description"
+                },
+                "id": {
+                  "column": "id"
+                },
+                "key": {
+                  "column": "key"
+                },
+                "module": {
+                  "column": "module"
+                },
+                "updatedAt": {
+                  "column": "updatedAt"
+                }
+              },
+              "namespaceId": "public",
+              "table": "permission"
+            }
+          },
+          "Role": {
+            "fields": {
+              "createdAt": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/timestamptz-temporal@1",
+                  "kind": "scalar"
+                }
+              },
+              "id": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/int4@1",
+                  "kind": "scalar"
+                }
+              },
+              "isSystem": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/bool@1",
+                  "kind": "scalar"
+                }
+              },
+              "key": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                }
+              },
+              "name": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                }
+              },
+              "rank": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/int4@1",
+                  "kind": "scalar"
+                }
+              },
+              "updatedAt": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/timestamptz-temporal@1",
+                  "kind": "scalar"
+                }
+              }
+            },
+            "relations": {
+              "rolePermissions": {
+                "cardinality": "1:N",
+                "on": {
+                  "localFields": [
+                    "id"
+                  ],
+                  "targetFields": [
+                    "roleId"
+                  ]
+                },
+                "to": {
+                  "model": "RolePermission",
+                  "namespace": "public"
+                }
+              },
+              "users": {
+                "cardinality": "1:N",
+                "on": {
+                  "localFields": [
+                    "id"
+                  ],
+                  "targetFields": [
+                    "roleId"
+                  ]
+                },
+                "to": {
+                  "model": "User",
+                  "namespace": "public"
+                }
+              }
+            },
+            "storage": {
+              "fields": {
+                "createdAt": {
+                  "column": "createdAt"
+                },
+                "id": {
+                  "column": "id"
+                },
+                "isSystem": {
+                  "column": "isSystem"
+                },
+                "key": {
+                  "column": "key"
+                },
+                "name": {
+                  "column": "name"
+                },
+                "rank": {
+                  "column": "rank"
+                },
+                "updatedAt": {
+                  "column": "updatedAt"
+                }
+              },
+              "namespaceId": "public",
+              "table": "role"
+            }
+          },
+          "RolePermission": {
+            "fields": {
+              "createdAt": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/timestamptz-temporal@1",
+                  "kind": "scalar"
+                }
+              },
+              "permissionId": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/int4@1",
+                  "kind": "scalar"
+                }
+              },
+              "roleId": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/int4@1",
+                  "kind": "scalar"
+                }
+              }
+            },
+            "relations": {
+              "permission": {
+                "cardinality": "N:1",
+                "nullable": false,
+                "on": {
+                  "localFields": [
+                    "permissionId"
+                  ],
+                  "targetFields": [
+                    "id"
+                  ]
+                },
+                "to": {
+                  "model": "Permission",
+                  "namespace": "public"
+                }
+              },
+              "role": {
+                "cardinality": "N:1",
+                "nullable": false,
+                "on": {
+                  "localFields": [
+                    "roleId"
+                  ],
+                  "targetFields": [
+                    "id"
+                  ]
+                },
+                "to": {
+                  "model": "Role",
+                  "namespace": "public"
+                }
+              }
+            },
+            "storage": {
+              "fields": {
+                "createdAt": {
+                  "column": "createdAt"
+                },
+                "permissionId": {
+                  "column": "permissionId"
+                },
+                "roleId": {
+                  "column": "roleId"
+                }
+              },
+              "namespaceId": "public",
+              "table": "rolePermission"
             }
           },
           "Session": {
@@ -262,6 +562,7 @@
             "relations": {
               "user": {
                 "cardinality": "N:1",
+                "nullable": false,
                 "on": {
                   "localFields": [
                     "userId"
@@ -356,6 +657,13 @@
                   "kind": "scalar"
                 }
               },
+              "isActive": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/bool@1",
+                  "kind": "scalar"
+                }
+              },
               "password": {
                 "nullable": false,
                 "type": {
@@ -374,6 +682,13 @@
                   "entityName": "UserRole",
                   "namespaceId": "public",
                   "plane": "domain"
+                }
+              },
+              "roleId": {
+                "nullable": true,
+                "type": {
+                  "codecId": "pg/int4@1",
+                  "kind": "scalar"
                 }
               },
               "updatedAt": {
@@ -404,6 +719,22 @@
                 },
                 "to": {
                   "model": "AccountToken",
+                  "namespace": "public"
+                }
+              },
+              "rbacRole": {
+                "cardinality": "N:1",
+                "nullable": true,
+                "on": {
+                  "localFields": [
+                    "roleId"
+                  ],
+                  "targetFields": [
+                    "id"
+                  ]
+                },
+                "to": {
+                  "model": "Role",
                   "namespace": "public"
                 }
               },
@@ -440,11 +771,17 @@
                 "id": {
                   "column": "id"
                 },
+                "isActive": {
+                  "column": "isActive"
+                },
                 "password": {
                   "column": "password"
                 },
                 "role": {
                   "column": "role"
+                },
+                "roleId": {
+                  "column": "roleId"
                 },
                 "updatedAt": {
                   "column": "updatedAt"
@@ -583,6 +920,250 @@
                 }
               ]
             },
+            "permission": {
+              "columns": {
+                "action": {
+                  "codecId": "pg/text@1",
+                  "nativeType": "text",
+                  "nullable": false
+                },
+                "createdAt": {
+                  "codecId": "pg/timestamptz-temporal@1",
+                  "default": {
+                    "expression": "now()",
+                    "kind": "function"
+                  },
+                  "nativeType": "timestamptz",
+                  "nullable": false
+                },
+                "description": {
+                  "codecId": "pg/text@1",
+                  "nativeType": "text",
+                  "nullable": true
+                },
+                "id": {
+                  "codecId": "pg/int4@1",
+                  "default": {
+                    "expression": "autoincrement()",
+                    "kind": "function"
+                  },
+                  "nativeType": "int4",
+                  "nullable": false
+                },
+                "key": {
+                  "codecId": "pg/text@1",
+                  "nativeType": "text",
+                  "nullable": false
+                },
+                "module": {
+                  "codecId": "pg/text@1",
+                  "nativeType": "text",
+                  "nullable": false
+                },
+                "updatedAt": {
+                  "codecId": "pg/timestamptz-temporal@1",
+                  "nativeType": "timestamptz",
+                  "nullable": false
+                }
+              },
+              "foreignKeys": [],
+              "indexes": [
+                {
+                  "columns": [
+                    "module"
+                  ],
+                  "name": "permission_module_idx_dc74a7ea",
+                  "prefix": "permission_module_idx",
+                  "unique": false
+                }
+              ],
+              "primaryKey": {
+                "columns": [
+                  "id"
+                ]
+              },
+              "uniques": [
+                {
+                  "columns": [
+                    "key"
+                  ]
+                },
+                {
+                  "columns": [
+                    "module",
+                    "action"
+                  ]
+                }
+              ]
+            },
+            "role": {
+              "columns": {
+                "createdAt": {
+                  "codecId": "pg/timestamptz-temporal@1",
+                  "default": {
+                    "expression": "now()",
+                    "kind": "function"
+                  },
+                  "nativeType": "timestamptz",
+                  "nullable": false
+                },
+                "id": {
+                  "codecId": "pg/int4@1",
+                  "default": {
+                    "expression": "autoincrement()",
+                    "kind": "function"
+                  },
+                  "nativeType": "int4",
+                  "nullable": false
+                },
+                "isSystem": {
+                  "codecId": "pg/bool@1",
+                  "default": {
+                    "kind": "literal",
+                    "value": false
+                  },
+                  "nativeType": "bool",
+                  "nullable": false
+                },
+                "key": {
+                  "codecId": "pg/text@1",
+                  "nativeType": "text",
+                  "nullable": false
+                },
+                "name": {
+                  "codecId": "pg/text@1",
+                  "nativeType": "text",
+                  "nullable": false
+                },
+                "rank": {
+                  "codecId": "pg/int4@1",
+                  "nativeType": "int4",
+                  "nullable": false
+                },
+                "updatedAt": {
+                  "codecId": "pg/timestamptz-temporal@1",
+                  "nativeType": "timestamptz",
+                  "nullable": false
+                }
+              },
+              "foreignKeys": [],
+              "indexes": [
+                {
+                  "columns": [
+                    "rank"
+                  ],
+                  "name": "role_rank_idx_3401b09c",
+                  "prefix": "role_rank_idx",
+                  "unique": false
+                }
+              ],
+              "primaryKey": {
+                "columns": [
+                  "id"
+                ]
+              },
+              "uniques": [
+                {
+                  "columns": [
+                    "key"
+                  ]
+                },
+                {
+                  "columns": [
+                    "name"
+                  ]
+                },
+                {
+                  "columns": [
+                    "rank"
+                  ]
+                }
+              ]
+            },
+            "rolePermission": {
+              "columns": {
+                "createdAt": {
+                  "codecId": "pg/timestamptz-temporal@1",
+                  "default": {
+                    "expression": "now()",
+                    "kind": "function"
+                  },
+                  "nativeType": "timestamptz",
+                  "nullable": false
+                },
+                "permissionId": {
+                  "codecId": "pg/int4@1",
+                  "nativeType": "int4",
+                  "nullable": false
+                },
+                "roleId": {
+                  "codecId": "pg/int4@1",
+                  "nativeType": "int4",
+                  "nullable": false
+                }
+              },
+              "foreignKeys": [
+                {
+                  "onDelete": "cascade",
+                  "source": {
+                    "columns": [
+                      "roleId"
+                    ],
+                    "namespaceId": "public",
+                    "tableName": "rolePermission"
+                  },
+                  "target": {
+                    "columns": [
+                      "id"
+                    ],
+                    "namespaceId": "public",
+                    "tableName": "role"
+                  }
+                },
+                {
+                  "onDelete": "cascade",
+                  "source": {
+                    "columns": [
+                      "permissionId"
+                    ],
+                    "namespaceId": "public",
+                    "tableName": "rolePermission"
+                  },
+                  "target": {
+                    "columns": [
+                      "id"
+                    ],
+                    "namespaceId": "public",
+                    "tableName": "permission"
+                  }
+                }
+              ],
+              "indexes": [
+                {
+                  "columns": [
+                    "permissionId"
+                  ],
+                  "name": "rolePermission_permissionId_idx_f46fcdf5",
+                  "prefix": "rolePermission_permissionId_idx",
+                  "unique": false
+                },
+                {
+                  "columns": [
+                    "roleId"
+                  ],
+                  "name": "rolePermission_roleId_idx_ffccc9a4",
+                  "prefix": "rolePermission_roleId_idx",
+                  "unique": false
+                }
+              ],
+              "primaryKey": {
+                "columns": [
+                  "roleId",
+                  "permissionId"
+                ]
+              },
+              "uniques": []
+            },
             "session": {
               "columns": {
                 "absoluteExpiresAt": {
@@ -715,8 +1296,8 @@
             "user": {
               "checks": [
                 {
-                  "expression": "\"role\" IN ('SUPER_ADMIN', 'ADMIN', 'USER', 'CUSTOMER', 'MODERATOR', 'AUTHOR', 'MANAGER')",
-                  "name": "user_role_check_6626637a",
+                  "expression": "\"role\" IN ('SUPER_ADMIN', 'ADMIN', 'MANAGER', 'EDITOR', 'MODERATOR', 'AUTHOR', 'SELLER', 'CUSTOMER')",
+                  "name": "user_role_check_c54f5281",
                   "prefix": "user_role_check"
                 }
               ],
@@ -754,6 +1335,15 @@
                   "nativeType": "int4",
                   "nullable": false
                 },
+                "isActive": {
+                  "codecId": "pg/bool@1",
+                  "default": {
+                    "kind": "literal",
+                    "value": true
+                  },
+                  "nativeType": "bool",
+                  "nullable": false
+                },
                 "password": {
                   "codecId": "pg/text@1",
                   "nativeType": "text",
@@ -763,7 +1353,7 @@
                   "codecId": "pg/text@1",
                   "default": {
                     "kind": "literal",
-                    "value": "USER"
+                    "value": "EDITOR"
                   },
                   "nativeType": "text",
                   "nullable": false,
@@ -773,6 +1363,11 @@
                     "namespaceId": "public",
                     "plane": "storage"
                   }
+                },
+                "roleId": {
+                  "codecId": "pg/int4@1",
+                  "nativeType": "int4",
+                  "nullable": true
                 },
                 "updatedAt": {
                   "codecId": "pg/timestamptz-temporal@1",
@@ -785,8 +1380,35 @@
                   "nullable": true
                 }
               },
-              "foreignKeys": [],
-              "indexes": [],
+              "foreignKeys": [
+                {
+                  "onDelete": "restrict",
+                  "source": {
+                    "columns": [
+                      "roleId"
+                    ],
+                    "namespaceId": "public",
+                    "tableName": "user"
+                  },
+                  "target": {
+                    "columns": [
+                      "id"
+                    ],
+                    "namespaceId": "public",
+                    "tableName": "role"
+                  }
+                }
+              ],
+              "indexes": [
+                {
+                  "columns": [
+                    "roleId"
+                  ],
+                  "name": "user_roleId_idx_ffccc9a4",
+                  "prefix": "user_roleId_idx",
+                  "unique": false
+                }
+              ],
               "primaryKey": {
                 "columns": [
                   "id"
@@ -814,11 +1436,12 @@
               "values": [
                 "SUPER_ADMIN",
                 "ADMIN",
-                "USER",
-                "CUSTOMER",
+                "MANAGER",
+                "EDITOR",
                 "MODERATOR",
                 "AUTHOR",
-                "MANAGER"
+                "SELLER",
+                "CUSTOMER"
               ]
             }
           }
@@ -827,32 +1450,25 @@
         "kind": "postgres-schema"
       }
     },
-    "storageHash": "ed7423a89e65ce3b3fc53ce7bface62d496c405566f472fc4629d98dfe118f3b"
+    "storageHash": "e7ed36f65957ff24881fde5de63fe4acf159fefe1b9e0590e947ee4f7edec3ac"
   },
   "execution": {
-    "executionHash": "11f07f7ed1fa2703e55967f5a399cb4c7f301f217257d3bead04142e03f0cdf0",
+    "executionHash": "cdb16190f87de4bbcd3d02d644609ffe3d3a58008328257f70dd1e268d454ec5",
     "mutations": {
       "defaults": [
         {
           "onCreate": {
-            "id": "uuidv4",
+            "id": "instantNow",
+            "kind": "generator"
+          },
+          "onUpdate": {
+            "id": "instantNow",
             "kind": "generator"
           },
           "ref": {
-            "column": "familyId",
-            "namespace": "public",
-            "table": "session"
-          }
-        },
-        {
-          "onCreate": {
-            "id": "uuidv4",
-            "kind": "generator"
-          },
-          "ref": {
-            "column": "jti",
-            "namespace": "public",
-            "table": "session"
+            "entry": "permission",
+            "field": "updatedAt",
+            "namespace": "public"
           }
         },
         {
@@ -865,9 +1481,46 @@
             "kind": "generator"
           },
           "ref": {
-            "column": "updatedAt",
-            "namespace": "public",
-            "table": "user"
+            "entry": "role",
+            "field": "updatedAt",
+            "namespace": "public"
+          }
+        },
+        {
+          "onCreate": {
+            "id": "uuidv4",
+            "kind": "generator"
+          },
+          "ref": {
+            "entry": "session",
+            "field": "familyId",
+            "namespace": "public"
+          }
+        },
+        {
+          "onCreate": {
+            "id": "uuidv4",
+            "kind": "generator"
+          },
+          "ref": {
+            "entry": "session",
+            "field": "jti",
+            "namespace": "public"
+          }
+        },
+        {
+          "onCreate": {
+            "id": "instantNow",
+            "kind": "generator"
+          },
+          "onUpdate": {
+            "id": "instantNow",
+            "kind": "generator"
+          },
+          "ref": {
+            "entry": "user",
+            "field": "updatedAt",
+            "namespace": "public"
           }
         }
       ]
@@ -886,6 +1539,8 @@
       "checkConstraint": true,
       "defaultInInsert": true,
       "enums": true,
+      "insertOnConflictSkip": true,
+      "insertOnConflictWithoutTarget": true,
       "lateral": true,
       "returning": true,
       "scalarList": true

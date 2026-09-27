@@ -43,12 +43,37 @@ const rawUser: Record<string, unknown> = {
   userName: "starter-user",
   fullName: "Starter User",
   password: "",
-  role: "USER",
+  role: "CUSTOMER",
+  isActive: true,
   ...timestamps,
 };
 
 const project = (record: Record<string, unknown>, fields: string[]) =>
   Object.fromEntries(fields.map((field) => [field, record[field]]));
+
+const adminPermissionKeys = [
+  "users:read:any",
+  "users:create",
+  "users:update:any",
+  "users:delete:any",
+  "users:change-role",
+  "users:change-status",
+  "users:reset-password",
+];
+
+const withRbacRole = (record: Record<string, unknown>) => {
+  const role = record.role as string;
+  const hasAllPermissions = role === "ADMIN" || role === "SUPER_ADMIN";
+  return {
+    ...record,
+    rbacRole: {
+      key: role,
+      rolePermissions: (hasAllPermissions ? adminPermissionKeys : []).map((key) => ({
+        permission: { key },
+      })),
+    },
+  };
+};
 
 const expectNoSensitiveUserFields = (value: unknown) => {
   expect(JSON.stringify(value).toLowerCase()).not.toMatch(
@@ -61,11 +86,12 @@ beforeAll(async () => {
 });
 
 beforeEach(() => {
-  database.state.lookupUser = { ...rawUser, role: "USER" };
+  database.state.lookupUser = { ...rawUser, role: "CUSTOMER" };
   database.userSelect.mockImplementation((...fields: string[]) => {
     const collection = {
-      first: vi.fn(async () => database.state.lookupUser),
+      first: vi.fn(async () => database.state.lookupUser ? withRbacRole(database.state.lookupUser) : null),
       all: vi.fn(async () => [project(rawUser, fields)]),
+      include: vi.fn(() => collection),
       create: vi.fn(async (data: Record<string, unknown>) =>
         project({ ...rawUser, ...data }, fields),
       ),
@@ -108,7 +134,7 @@ describe("user API security boundary", () => {
     const token = jwt.signAccessToken({ userId: -1 });
     const response = await request(app)
       .get("/api/v1/users")
-      .set("Authorization", `Bearer ${token}`);
+      .set("Cookie", `accessToken=${token}`);
 
     expect(response.status).toBe(401);
   });
@@ -117,7 +143,7 @@ describe("user API security boundary", () => {
     const token = jwt.signAccessToken({ userId: 1 });
     const response = await request(app)
       .get("/api/v1/users")
-      .set("Authorization", `Bearer ${token}`);
+      .set("Cookie", `accessToken=${token}`);
 
     expect(response.status).toBe(403);
   });
@@ -127,7 +153,7 @@ describe("user API security boundary", () => {
     const token = jwt.signAccessToken({ userId: 2 });
     const response = await request(app)
       .get("/api/v1/users")
-      .set("Authorization", `Bearer ${token}`);
+      .set("Cookie", `accessToken=${token}`);
 
     expect(response.status).toBe(200);
     expectNoSensitiveUserFields(response.body);
@@ -137,6 +163,7 @@ describe("user API security boundary", () => {
       "email",
       "fullName",
       "id",
+      "isActive",
       "role",
       "updatedAt",
       "userName",
@@ -149,7 +176,7 @@ describe("user API security boundary", () => {
 
     const response = await request(app)
       .get("/api/v1/users?page=2&limit=100&sortBy=email&sortOrder=asc")
-      .set("Authorization", `Bearer ${token}`);
+      .set("Cookie", `accessToken=${token}`);
 
     expect(response.status).toBe(200);
     expect(response.body.meta).toEqual({ page: 2, limit: 100, total: 1, totalPages: 1 });
@@ -161,9 +188,9 @@ describe("user API security boundary", () => {
     const token = jwt.signAccessToken({ userId: 2 });
 
     const [tooLarge, invalidSort, arbitraryFilter] = await Promise.all([
-      request(app).get("/api/v1/users?limit=101").set("Authorization", `Bearer ${token}`),
-      request(app).get("/api/v1/users?sortBy=password").set("Authorization", `Bearer ${token}`),
-      request(app).get("/api/v1/users?password=anything").set("Authorization", `Bearer ${token}`),
+      request(app).get("/api/v1/users?limit=101").set("Cookie", `accessToken=${token}`),
+      request(app).get("/api/v1/users?sortBy=password").set("Cookie", `accessToken=${token}`),
+      request(app).get("/api/v1/users?password=anything").set("Cookie", `accessToken=${token}`),
     ]);
 
     for (const response of [tooLarge, invalidSort, arbitraryFilter]) {
@@ -177,23 +204,23 @@ describe("user API security boundary", () => {
     const token = jwt.signAccessToken({ userId: 2 });
 
     const response = await request(app)
-      .get("/api/v1/users?role=USER")
-      .set("Authorization", `Bearer ${token}`);
+      .get("/api/v1/users?role=CUSTOMER")
+      .set("Cookie", `accessToken=${token}`);
 
     expect(response.status).toBe(200);
     expect(database.userSelect.mock.results.some((result) =>
       result.value.where.mock.calls.some(
-        (call: unknown[]) => (call[0] as { role?: string } | undefined)?.role === "USER",
+        (call: unknown[]) => (call[0] as { role?: string } | undefined)?.role === "CUSTOMER",
       ),
     )).toBe(true);
   });
 
-  it("allows self-read but rejects access to another user's detail", async () => {
+  it("reserves user detail lookups for roles with users:read:any", async () => {
     const ownToken = jwt.signAccessToken({ userId: 1 });
-    const own = await request(app).get("/api/v1/users/1").set("Authorization", `Bearer ${ownToken}`);
-    const other = await request(app).get("/api/v1/users/2").set("Authorization", `Bearer ${ownToken}`);
+    const own = await request(app).get("/api/v1/users/1").set("Cookie", `accessToken=${ownToken}`);
+    const other = await request(app).get("/api/v1/users/2").set("Cookie", `accessToken=${ownToken}`);
 
-    expect(own.status).toBe(200);
+    expect(own.status).toBe(403);
     expect(other.status).toBe(403);
     expectNoSensitiveUserFields(own.body);
   });
@@ -201,67 +228,60 @@ describe("user API security boundary", () => {
   it("allows an admin to read another user", async () => {
     database.state.lookupUser = { ...rawUser, role: "ADMIN" };
     const token = jwt.signAccessToken({ userId: 2 });
-    const response = await request(app).get("/api/v1/users/1").set("Authorization", `Bearer ${token}`);
+    const response = await request(app).get("/api/v1/users/1").set("Cookie", `accessToken=${token}`);
     expect(response.status).toBe(200);
   });
 
-  it("enforces ownership on profile updates and blocks privileged fields", async () => {
+  it("reserves profile updates for roles with users:update:any", async () => {
     const token = jwt.signAccessToken({ userId: 1 });
     const denied = await request(app)
       .patch("/api/v1/users/2")
-      .set("Authorization", `Bearer ${token}`)
+      .set("Cookie", `accessToken=${token}`)
       .send({ fullName: "Changed Name" });
     const escalation = await request(app)
       .patch("/api/v1/users/1")
-      .set("Authorization", `Bearer ${token}`)
+      .set("Cookie", `accessToken=${token}`)
       .send({ role: "ADMIN" });
     const allowed = await request(app)
       .patch("/api/v1/users/1")
-      .set("Authorization", `Bearer ${token}`)
+      .set("Cookie", `accessToken=${token}`)
       .send({ fullName: "Changed Name" });
 
     expect(denied.status).toBe(403);
     expect(escalation.status).toBe(400);
-    expect(allowed.status).toBe(200);
-    expect(allowed.body.data.fullName).toBe("Changed Name");
+    expect(allowed.status).toBe(403);
+    
   });
 
-  it("reserves user deletion for admins", async () => {
+  it("does not expose a user-deletion endpoint", async () => {
     const userToken = jwt.signAccessToken({ userId: 1 });
     const forbidden = await request(app)
       .delete("/api/v1/users/1")
-      .set("Authorization", `Bearer ${userToken}`);
+      .set("Cookie", `accessToken=${userToken}`);
     database.state.lookupUser = { ...rawUser, role: "ADMIN" };
     const adminToken = jwt.signAccessToken({ userId: 2 });
     const deleted = await request(app)
       .delete("/api/v1/users/1")
-      .set("Authorization", `Bearer ${adminToken}`);
+      .set("Cookie", `accessToken=${adminToken}`);
 
-    expect(forbidden.status).toBe(403);
-    expect(deleted.status).toBe(204);
+    expect(forbidden.status).toBe(404);
+    expect(deleted.status).toBe(404);
   });
 
-  it("does not expose duplicate account creation through POST /users", async () => {
+  it("validates protected user-creation input before authorization", async () => {
     const token = jwt.signAccessToken({ userId: 1 });
     const response = await request(app)
       .post("/api/v1/users")
-      .set("Authorization", `Bearer ${token}`)
+      .set("Cookie", `accessToken=${token}`)
       .send({});
 
-    expect(response.status).toBe(404);
+    expect(response.status).toBe(400);
   });
 
-  it("never exposes password fields in registration responses", async () => {
-    database.state.lookupUser = null;
-    const response = await request(app).post("/api/v1/auth/register").send({
-      userName: rawUser.userName,
-      fullName: rawUser.fullName,
-      email: rawUser.email,
-      password: "Password1!",
-    });
+  it("does not expose a public registration endpoint", async () => {
+    const response = await request(app).post("/api/v1/auth/register").send({});
 
-    expect(response.status).toBe(201);
-    expectNoSensitiveUserFields(response.body);
+    expect(response.status).toBe(404);
   });
 
   it("never exposes password fields in login responses", async () => {
@@ -272,7 +292,7 @@ describe("user API security boundary", () => {
     });
 
     expect(response.status).toBe(200);
-    expect(response.body.data.accessToken).toEqual(expect.any(String));
+    expect(response.headers["set-cookie"]?.join(";")).toContain("accessToken=");
     expectNoSensitiveUserFields(response.body.data.user);
   });
 });

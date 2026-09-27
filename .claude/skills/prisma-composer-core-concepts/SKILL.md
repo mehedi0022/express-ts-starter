@@ -2,7 +2,7 @@
 name: prisma-composer-core-concepts
 metadata:
   library: "@prisma/composer"
-  library_version: "0.17.0"
+  library_version: "0.23.0"
   version: 2026.9.1
 description: >-
   Use when deploying or managing an app that uses Prisma Composer
@@ -239,7 +239,7 @@ Two kinds of Postgres dependency:
    `prisma contract emit`) is referenced by both the dependency end
    (`deps: { db: postgres(catalogData) }`) and the resource end, which also
    names the `prisma.config.ts` path so the deploy's migration step can
-   find `migrations/`.
+   reload the emitted `contract.json` and find `migrations/`.
 
 **Deploys are replay-only**: they apply the migrations committed under
 `migrations/` and never create schema themselves. Every schema change,
@@ -256,8 +256,12 @@ If no authored path reaches the target contract, deploy (and `dev` against a
 stale local database) refuses with `MIGRATION_PATH_NOT_FOUND`; its message
 lists the two ways out: author the missing migration, or, when iterating
 against a local
-database only, `prisma db update`. Never skip step 3 before a deploy. See
-`examples/store/modules/catalog` for the complete pattern.
+database only, `prisma db update`. The tracked migration resource persists only
+compact contract identity in deploy state; if the emitted contract artifact
+named by `prisma.config.ts` is missing, unreadable, or no longer matches the
+declared `dataContract(...)` value, deploy fails before touching the database.
+Never skip step 3 before a deploy. See `examples/store/modules/catalog` for the
+complete pattern.
 
 ## Deploy model: converge, don't script
 
@@ -284,12 +288,12 @@ another stage's resources is kept. Destroy never creates anything:
 destroying a
 never-deployed stage fails rather than standing one up.
 
-**The engine underneath is alchemy.** Convergence is executed by
-[alchemy](https://alchemy.run), a third-party infrastructure-as-code engine
-that arrives as an ordinary, exactly-pinned npm dependency of
-`@prisma/composer` (2.0.0-beta.74 at this library version). Your code never
-imports or configures it; consult alchemy's own docs for the engine itself.
-What matters operationally:
+**The engine underneath is alchemy.** Convergence is executed by [alchemy](https://alchemy.run), a third-party infrastructure-as-code engine that arrives as an ordinary, exactly-pinned npm dependency of `@prisma/composer` (2.0.0-beta.78 at this library version). Your code never imports or configures it; consult alchemy's own docs for the engine itself. What matters operationally:
+
+Alchemy is resolved from the nearest `node_modules/.bin`, including hoisted
+ancestor directories. Windows resolves `alchemy.exe`, then `alchemy.cmd`,
+then the extensionless shim; POSIX resolves `alchemy`. No global Alchemy
+installation is needed.
 
 1. Deploy and destroy write the pipeline's results to a generated, gitignored
    stack file at `.prisma-composer/alchemy.run.ts`, then run the alchemy CLI
@@ -360,6 +364,14 @@ that surprise:
    service it calls.
 5. Windows isn't supported yet.
 
+Local Postgres runs on `@prisma/dev`, which `@prisma/composer-prisma-cloud`
+declares as its own dependency (`^0.25.2`) and resolves from its own package.
+Nothing needs adding to the app, and an app's own `@prisma/dev` (for example the
+`^0.20.0` alchemy pulls in, which crashes on any Postgres message over 64 KiB) is
+ignored. If the emulator reports that `@prisma/dev` did not resolve, the install
+is broken: reinstall dependencies rather than adding `@prisma/dev` or `prisma`.
+Cloud deployment and local apps without Postgres never load this runtime.
+
 ## Testing is an environment seam
 
 A test is just another environment: one where you decide what `load()` and
@@ -402,10 +414,10 @@ provision exactly like your own:
 
 | Import | What it provisions | Exposes |
 | --- | --- | --- |
-| `cron` from `/cron` | An always-on scheduler firing your schedule at your runner service | nothing |
+| `cron` from `/cron` | An always-on scheduler (it holds Compute's keep-awake guard) firing your schedule at your runner service; `input` on `cron()` binds the runner's input schema | nothing |
 | `storage` from `/storage` | An S3-backed blob store (own Postgres + minted credentials) | `store` |
 | `streams` from `/streams` | Durable append-only event streams over a `store` | `streams` |
-| `auth` from `/auth` | Signup, login, sessions, and JWT verification (Better Auth in one service, own database) | `api`, `session`, `admin` |
+| `auth` from `/auth` | Signup, login, sessions, and JWT verification (Better Auth in one service, own database). `auth({ signUp: 'closed' })` makes Better Auth refuse self-service sign-up; operator-created accounts go through `admin.createUser({ email, name, password?, emailVerified? })` from a service wired to `admin` (it throws on a duplicate email and sends no mail); a signed-in user deletes their own account with Better Auth's `POST /api/auth/delete-user` through the proxy (password, or a session < 24 h old); operators delete with `admin.removeUser({ userId })`; either way your own rows follow your `auth:User` FK's `onDelete` (`Cascade` deletes them, `Restrict` refuses the deletion) | `api`, `session`, `admin` |
 | `email` from `/email` | Transactional email with a stored outbox (own service and database) | `send`, `outbox` |
 
 `bucket()` (imported alongside `rawPostgres`) is a raw S3-compatible bucket:
@@ -422,22 +434,23 @@ today the blocks above plus your own Modules are the whole set, so verify a
 
 1. **Every `prisma-composer` command halts at start-up on an `effect`
    version conflict** (`Dependency conflict: alchemy resolves effect@...`).
-   Another dependency floated a newer `effect` and the package manager
-   hoisted it over Composer's pin. Pin the whole `effect` constellation in
-   the app's `package.json` `overrides` (yarn: `resolutions`; pnpm:
-   `pnpm.overrides`): `effect` plus `@effect/sql-d1`, `@effect/sql-pg`,
-   `@effect/vitest`, and `@effect/platform-bun`/`-node`/`-node-shared`, all
-   at Composer's exact pin, then reinstall. The repo's examples carry the
-   block.
+   The app, or one of its dependencies, pins a different `effect` and the
+   package manager hoisted it over Composer's pin. Match the app's own
+   `effect` to `@prisma/composer`'s exact pin, or force it with
+   `"overrides": { "effect": "<pin>" }` in the app's `package.json` (yarn:
+   `resolutions`; pnpm: `pnpm.overrides`), then reinstall. A plain Composer
+   app never hits this: the public packages pin every `effect`-family
+   package alchemy would float.
 2. **A deployed `/rpc/<method>` returns `401` to anything but a wired
    peer.** Not a broken deploy; see Contracts above.
 3. **Scale-to-zero closes idle database connections.** A persistent client
    crashes into a 502 restart loop unless the pool is small and
    reconnect-friendly (`new SQL({ url, max: 1, idleTimeout: 10 })` for Bun)
    and the process logs `uncaughtException`/`unhandledRejection` instead of
-   dying. Under `dev` watch-restarts against the local emulator, add
-   `prepare: false` as well: restarted processes collide on
-   prepared-statement names in the emulator's shared session.
+   dying. Under `dev`, add `prepare: false` as well: the local Postgres
+   is one session shared by every connection and it outlives your
+   processes, so a restarted process collides on prepared-statement
+   names (42P05) and crash-loops.
 4. **Cold starts reset service-to-service connections.** A call into a
    scaled-to-zero service can get `ECONNRESET`; retry it.
 5. **Bind `0.0.0.0`, not loopback.** The platform routes external HTTP to
@@ -459,6 +472,15 @@ today the blocks above plus your own Modules are the whole set, so verify a
    contract columns compiles and deploys, then fails on the first timestamp
    read. Provide the global at the server entry
    (`import 'temporal-polyfill/global'`) or use string column types.
+10. **The auth module's `/api/auth/*` returns `403 MISSING_OR_NULL_ORIGIN`
+    to a Node script.** It is the browser surface: Better Auth origin-checks
+    any request carrying a cookie, an `Origin`/`Referer`, or a `Sec-Fetch-*`
+    header, and Node's built-in `fetch` sends `Sec-Fetch-Mode` on every
+    request (the same `curl` passes). Send an `Origin` equal to the module's
+    `baseUrl`, or, for provisioning, don't use that surface at all: call
+    `admin.createUser` from a service wired to the `admin` port. A deployed
+    stack's rpc ports are reachable only from inside its graph, so the app
+    exposes its own operator route that makes that call.
 
 ## What Composer doesn't do yet
 

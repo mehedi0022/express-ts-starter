@@ -11,6 +11,7 @@ describe.skipIf(!databaseTestsEnabled)("database-backed authorization", () => {
   let dbModule: typeof import("../../src/prisma/db.js");
   let jwtUtils: typeof import("../../src/utils/jwt.util.js");
   let userId: number;
+  let adminRoleId: number;
 
   beforeAll(async () => {
     process.env.DATABASE_URL = getTestDatabaseUrl();
@@ -22,12 +23,30 @@ describe.skipIf(!databaseTestsEnabled)("database-backed authorization", () => {
       import("../../src/utils/jwt.util.js"),
     ]);
 
+    const customerRole = await dbModule.db.orm.public.Role.first({ key: "CUSTOMER" });
+    const adminRole = await dbModule.db.orm.public.Role.first({ key: "ADMIN" });
+    const readUsers = await dbModule.db.orm.public.Permission.first({ key: "users:read:any" });
+    if (!customerRole || !adminRole || !readUsers) {
+      throw new Error("Run the RBAC seeder before database integration tests");
+    }
+    adminRoleId = adminRole.id;
+
+    const adminGrant = await dbModule.db.orm.public.RolePermission.first({
+      roleId: adminRole.id,
+      permissionId: readUsers.id,
+    });
+    if (!adminGrant) await dbModule.db.orm.public.RolePermission.create({
+      roleId: adminRole.id,
+      permissionId: readUsers.id,
+    });
+
     const user = await dbModule.db.orm.public.User.create({
       email: `${randomUUID()}@authorization.test`,
       password: "not-used-by-this-test",
+      role: "CUSTOMER",
+      roleId: customerRole.id,
     });
     userId = user.id;
-    expect(user.role).toBe("USER");
   });
 
   afterAll(async () => {
@@ -40,14 +59,14 @@ describe.skipIf(!databaseTestsEnabled)("database-backed authorization", () => {
 
     const denied = await request(app)
       .get("/api/v1/users")
-      .set("Authorization", `Bearer ${accessToken}`);
+      .set("Cookie", `accessToken=${accessToken}`);
     expect(denied.status).toBe(403);
 
-    await dbModule.db.orm.public.User.where({ id: userId }).update({ role: "ADMIN" });
+    await dbModule.db.orm.public.User.where({ id: userId }).update({ role: "ADMIN", roleId: adminRoleId });
 
     const allowed = await request(app)
       .get("/api/v1/users")
-      .set("Authorization", `Bearer ${accessToken}`);
+      .set("Cookie", `accessToken=${accessToken}`);
     expect(allowed.status).toBe(200);
     expect(allowed.body.data).toEqual(expect.arrayContaining([
       expect.objectContaining({ id: userId, role: "ADMIN" }),

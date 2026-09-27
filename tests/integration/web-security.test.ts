@@ -7,6 +7,7 @@ import app from "../../src/app.js";
 import {
   createRateLimiter,
   forgotPasswordRateLimit,
+  registerRateLimit,
   resetDefaultRateLimitStore,
 } from "../../src/middlewares/rateLimit.middleware.js";
 
@@ -90,20 +91,19 @@ describe("rate limiting", () => {
     expect(blocked.status).toBe(429);
   });
 
-  it("applies independent registration and refresh limits", async () => {
+  it("applies independent resend-verification and refresh limits", async () => {
+    const authApp = express();
+    authApp.post("/resend-verification", registerRateLimit, (_req, res) => res.sendStatus(202));
     for (let attempt = 1; attempt <= 3; attempt += 1) {
-      expect((await request(app).post("/api/v1/auth/register").send({})).status)
-        .toBe(400);
+      expect((await request(authApp).post("/resend-verification")).status).toBe(202);
     }
-    expect((await request(app).post("/api/v1/auth/register").send({})).status)
-      .toBe(429);
+    expect((await request(authApp).post("/resend-verification")).status).toBe(429);
 
     for (let attempt = 1; attempt <= 30; attempt += 1) {
       expect((await request(app).post("/api/v1/auth/refresh")).status).toBe(401);
     }
     expect((await request(app).post("/api/v1/auth/refresh")).status).toBe(429);
   });
-
   it("provides a separate policy for a future forgot-password endpoint", async () => {
     const authApp = express();
     authApp.use(express.json());

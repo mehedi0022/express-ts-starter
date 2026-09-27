@@ -1,20 +1,65 @@
+// use prisma-8
 enum UserRole {
+  @@type("pg/text@1")
   SUPER_ADMIN = "SUPER_ADMIN"
   ADMIN = "ADMIN"
-  USER = "USER"
-  CUSTOMER = "CUSTOMER"
+  MANAGER = "MANAGER"
+  EDITOR = "EDITOR"
   MODERATOR = "MODERATOR"
   AUTHOR = "AUTHOR"
-  MANAGER = "MANAGER"
-
-  @@type("pg/text@1")
+  SELLER = "SELLER"
+  CUSTOMER = "CUSTOMER"
 }
 
 enum AccountTokenType {
+  @@type("pg/text@1")
   PASSWORD_RESET = "PASSWORD_RESET"
   EMAIL_VERIFICATION = "EMAIL_VERIFICATION"
+}
 
-  @@type("pg/text@1")
+// Database-driven RBAC foundation. `User.role` remains temporarily during the
+// expand/backfill rollout; `rbacRole` becomes the authorization source once
+// existing users have been migrated.
+model Role {
+  id              Int                  @id @default(autoincrement())
+  key             String               @unique
+  name            String               @unique
+  rank            Int                  @unique
+  isSystem        Boolean              @default(false)
+  createdAt       DateTime             @default(now())
+  updatedAt       temporal.updatedAt()
+  users           User[]
+  rolePermissions RolePermission[]
+
+  @@index([rank])
+  @@map("role")
+}
+
+model Permission {
+  id              Int                  @id @default(autoincrement())
+  key             String               @unique
+  module          String
+  action          String
+  description     String?
+  createdAt       DateTime             @default(now())
+  updatedAt       temporal.updatedAt()
+  rolePermissions RolePermission[]
+
+  @@unique([module, action])
+  @@index([module])
+  @@map("permission")
+}
+
+model RolePermission {
+  roleId       Int
+  permissionId Int
+  createdAt    DateTime   @default(now())
+  role         Role       @relation(fields:[roleId], references:[id], onDelete: Cascade)
+  permission   Permission @relation(fields:[permissionId], references:[id], onDelete: Cascade)
+
+  @@id([roleId, permissionId])
+  @@index([permissionId])
+  @@map("rolePermission")
 }
 
 model User {
@@ -25,11 +70,17 @@ model User {
   password        String
   createdAt       DateTime             @default(now())
   updatedAt       temporal.updatedAt()
-  role            UserRole             @default(USER)
+  role            UserRole             @default(EDITOR)
+  roleId          Int?
+  rbacRole        Role?                @relation(fields:[roleId], references:[id], onDelete: Restrict)
+  isActive        Boolean              @default(true)
   emailVerifiedAt DateTime?
 
   sessions        Session[]
   accountTokens   AccountToken[]
+
+  @@index([roleId])
+  @@map("user")
 }
 
 model Session {
@@ -50,6 +101,7 @@ model Session {
 
   @@index([userId])
   @@index([familyId])
+  @@map("session")
 }
 
 model AccountToken {
@@ -65,4 +117,5 @@ model AccountToken {
 
   @@index([userId, type])
   @@index([expiresAt])
+  @@map("accountToken")
 }

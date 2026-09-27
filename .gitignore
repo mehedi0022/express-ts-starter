@@ -4,6 +4,11 @@ coverage/
 uploads/
 /src/generated/prisma/
 
+.agents
+.claude
+.cursor
+.devin
+
 # Local environment files; public templates stay committed.
 .env
 .env.*

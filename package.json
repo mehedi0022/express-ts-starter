@@ -17,6 +17,7 @@
     "build": "tsc",
     "start": "node dist/server.js",
     "sessions:cleanup": "tsx src/scripts/cleanup-sessions.ts",
+    "rbac:seed": "tsx src/scripts/seed-rbac.ts",
     "db:emit": "npx prisma contract emit",
     "db:format": "npx prisma contract format",
     "db:verify": "npx prisma db verify",
@@ -32,7 +33,7 @@
     "node": ">=24 <25"
   },
   "dependencies": {
-    "@prisma/orm-postgres": "8.0.0-rc.8",
+    "@prisma/orm-postgres": "8.0.0-rc.12-dev.11",
     "argon2": "^0.45.1",
     "cloudinary": "^2.11.0",
     "cookie-parser": "^1.4.7",
@@ -53,7 +54,7 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
-    "@prisma/cli-engine": "0.3.0",
+    "@prisma/cli-engine": "0.6.1",
     "@types/cookie-parser": "^1.4.10",
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.6",
@@ -61,13 +62,13 @@
     "@types/multer": "^2.2.0",
     "@types/node": "^24.13.3",
     "@types/nodemailer": "^8.0.1",
-    "@types/pg": "^8.20.4",
+    "@types/pg": "8.20.4",
     "@types/supertest": "^7.2.1",
     "@vitest/coverage-v8": "^5.0.0",
-    "prisma": "8.0.0-rc.13",
+    "prisma": "^8.0.0-rc.15",
     "supertest": "^7.2.2",
     "tsx": "^4.23.12",
-    "typescript": "^7.0.2",
+    "typescript": "^6.0.3",
     "vite": "8.2.2",
     "vitest": "^5.0.0"
   },

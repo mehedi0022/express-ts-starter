@@ -6,9 +6,10 @@ export type UserRole = FieldOutputTypes["public"]["User"]["role"];
 export const userRoleSchema = z.enum([
   "SUPER_ADMIN",
   "ADMIN",
-  "USER",
-  "CUSTOMER",
   "MODERATOR",
   "AUTHOR",
   "MANAGER",
+  "EDITOR",
+  "SELLER",
+  "CUSTOMER",
 ] satisfies readonly UserRole[]);
